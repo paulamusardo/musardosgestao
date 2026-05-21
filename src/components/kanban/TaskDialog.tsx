@@ -93,10 +93,11 @@ export function TaskDialog({
     return () => { supabase.removeChannel(ch); };
   }, [task.id]);
 
-  const save = async (patch: Record<string, unknown>) => {
+  const save = async (patch: Partial<{ title: string; description: string | null; column_id: string | null; due_date: string | null }>) => {
     const { data, error } = await supabase
       .from("tasks")
-      .update(patch)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .update(patch as any)
       .eq("id", task.id)
       .select()
       .single();
