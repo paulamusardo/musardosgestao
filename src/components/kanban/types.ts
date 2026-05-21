@@ -7,6 +7,7 @@ export type Task = {
   status: TaskStatus;
   due_date: string | null;
   position: number;
+  project_id: string | null;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -18,6 +19,16 @@ export type Comment = {
   user_id: string;
   content: string;
   created_at: string;
+};
+
+export type Project = {
+  id: string;
+  name: string;
+  client: string | null;
+  color: string;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
 };
 
 export const COLUMNS: { key: TaskStatus; label: string; tone: string }[] = [

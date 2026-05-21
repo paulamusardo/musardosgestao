@@ -11,6 +11,7 @@ import {
   type DragOverEvent,
 } from "@dnd-kit/core";
 import { SortableContext, arrayMove, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { Link } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -19,15 +20,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { KanbanSquare, LogOut, Plus } from "lucide-react";
+import { ArrowLeft, KanbanSquare, LogOut, Plus } from "lucide-react";
 import { Column } from "./Column";
 import { TaskCardView } from "./TaskCard";
 import { TaskDialog } from "./TaskDialog";
-import type { Task, TaskStatus } from "./types";
+import type { Project, Task, TaskStatus } from "./types";
 import { COLUMNS } from "./types";
 
-export function KanbanBoard() {
+export function KanbanBoard({ projectId }: { projectId: string }) {
   const { user, signOut } = useAuth();
+  const [project, setProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [openTask, setOpenTask] = useState<Task | null>(null);
@@ -38,23 +40,36 @@ export function KanbanBoard() {
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
+  const loadProject = async () => {
+    const { data, error } = await supabase.from("projects").select("*").eq("id", projectId).maybeSingle();
+    if (error) return toast.error(error.message);
+    setProject((data as Project) ?? null);
+  };
+
   const load = async () => {
     const { data, error } = await supabase
       .from("tasks")
       .select("*")
+      .eq("project_id", projectId)
       .order("position", { ascending: true });
     if (error) return toast.error(error.message);
     setTasks((data ?? []) as Task[]);
   };
 
   useEffect(() => {
+    loadProject();
     load();
     const ch = supabase
-      .channel("tasks-rt")
-      .on("postgres_changes", { event: "*", schema: "public", table: "tasks" }, () => load())
+      .channel(`tasks-rt-${projectId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "tasks", filter: `project_id=eq.${projectId}` },
+        () => load()
+      )
       .subscribe();
     return () => { supabase.removeChannel(ch); };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
 
   const grouped = useMemo(() => {
     const g: Record<TaskStatus, Task[]> = { todo: [], in_progress: [], review: [], done: [] };
@@ -90,7 +105,6 @@ export function KanbanBoard() {
     const targetCol = findContainer(overIdStr);
     if (!targetCol) return;
 
-    // Reorder within column
     const colItems = tasks.filter((t) => t.status === targetCol).map((t) => t.id);
     const oldIndex = colItems.indexOf(activeIdStr);
     const newIndex = COLUMNS.some((c) => c.key === overIdStr)
@@ -101,7 +115,6 @@ export function KanbanBoard() {
       nextOrder = arrayMove(colItems, oldIndex, newIndex);
     }
 
-    // Apply positions
     const updated = tasks.map((t) => {
       if (t.status !== targetCol) return t;
       const idx = nextOrder.indexOf(t.id);
@@ -109,7 +122,6 @@ export function KanbanBoard() {
     });
     setTasks(updated);
 
-    // Persist moved card status + positions for the column
     const moved = updated.find((t) => t.id === activeIdStr);
     if (!moved) return;
     const updates = updated
@@ -132,6 +144,7 @@ export function KanbanBoard() {
       status: newStatus,
       position: pos,
       created_by: user.id,
+      project_id: projectId,
     });
     if (error) return toast.error(error.message);
     setNewTitle(""); setNewDesc(""); setNewOpen(false);
@@ -141,10 +154,21 @@ export function KanbanBoard() {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <header className="border-b bg-card/80 backdrop-blur sticky top-0 z-10">
-        <div className="px-6 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-2 font-semibold">
-            <KanbanSquare className="h-5 w-5 text-primary" />
-            <span>Flowboard</span>
+        <div className="px-6 h-14 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <Link to="/projects" className="text-muted-foreground hover:text-foreground">
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
+            <div className="flex items-center gap-2 font-semibold min-w-0">
+              <span
+                className="h-3 w-3 rounded-full shrink-0"
+                style={{ background: project?.color ?? "var(--primary)" }}
+              />
+              <span className="truncate">{project?.name ?? "Projeto"}</span>
+              {project?.client && (
+                <span className="text-xs font-normal text-muted-foreground truncate">· {project.client}</span>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <Dialog open={newOpen} onOpenChange={setNewOpen}>
