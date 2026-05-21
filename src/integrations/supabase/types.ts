@@ -67,6 +67,76 @@ export type Database = {
         }
         Relationships: []
       }
+      project_columns: {
+        Row: {
+          color: string
+          created_at: string
+          id: string
+          is_in_progress: boolean
+          label: string
+          position: number
+          project_id: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          id?: string
+          is_in_progress?: boolean
+          label: string
+          position?: number
+          project_id: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          id?: string
+          is_in_progress?: boolean
+          label?: string
+          position?: number
+          project_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_columns_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_members: {
+        Row: {
+          created_at: string
+          id: string
+          project_id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          project_id: string
+          role?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          project_id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_members_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       projects: {
         Row: {
           client: string | null
@@ -97,8 +167,64 @@ export type Database = {
         }
         Relationships: []
       }
+      task_assignees: {
+        Row: {
+          created_at: string
+          task_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          task_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          task_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_assignees_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      task_time_entries: {
+        Row: {
+          ended_at: string | null
+          id: string
+          started_at: string
+          task_id: string
+        }
+        Insert: {
+          ended_at?: string | null
+          id?: string
+          started_at?: string
+          task_id: string
+        }
+        Update: {
+          ended_at?: string | null
+          id?: string
+          started_at?: string
+          task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_time_entries_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
+          column_id: string | null
           created_at: string
           created_by: string
           description: string | null
@@ -108,9 +234,11 @@ export type Database = {
           project_id: string | null
           status: Database["public"]["Enums"]["task_status"]
           title: string
+          total_seconds: number
           updated_at: string
         }
         Insert: {
+          column_id?: string | null
           created_at?: string
           created_by: string
           description?: string | null
@@ -120,9 +248,11 @@ export type Database = {
           project_id?: string | null
           status?: Database["public"]["Enums"]["task_status"]
           title: string
+          total_seconds?: number
           updated_at?: string
         }
         Update: {
+          column_id?: string | null
           created_at?: string
           created_by?: string
           description?: string | null
@@ -132,9 +262,17 @@ export type Database = {
           project_id?: string | null
           status?: Database["public"]["Enums"]["task_status"]
           title?: string
+          total_seconds?: number
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "tasks_column_id_fkey"
+            columns: ["column_id"]
+            isOneToOne: false
+            referencedRelation: "project_columns"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "tasks_project_id_fkey"
             columns: ["project_id"]
@@ -149,7 +287,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      is_project_member: {
+        Args: { _project_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_project_owner: {
+        Args: { _project_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       task_status: "todo" | "in_progress" | "review" | "done"

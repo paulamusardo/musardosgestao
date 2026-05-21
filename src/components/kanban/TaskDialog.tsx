@@ -6,24 +6,31 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { Calendar as CalIcon, Trash2, Send } from "lucide-react";
+import { Calendar as CalIcon, Trash2, Send, Timer, UserCheck } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
-import { COLUMNS, type Task, type Comment, type TaskStatus } from "./types";
-
-type Profile = { id: string; display_name: string | null; email: string | null };
+import type { Task, Comment, ProjectColumn, Profile, TaskTimeEntry } from "./types";
+import { formatDurationLong } from "./types";
 
 export function TaskDialog({
   task,
+  columns,
+  members,
+  assignees,
+  openEntry,
   onClose,
   onChange,
   onDeleted,
 }: {
   task: Task;
+  columns: ProjectColumn[];
+  members: Profile[];
+  assignees: Profile[];
+  openEntry: TaskTimeEntry | null;
   onClose: () => void;
   onChange: (t: Task) => void;
   onDeleted: () => void;
@@ -31,18 +38,29 @@ export function TaskDialog({
   const { user } = useAuth();
   const [title, setTitle] = useState(task.title);
   const [desc, setDesc] = useState(task.description ?? "");
-  const [status, setStatus] = useState<TaskStatus>(task.status);
+  const [columnId, setColumnId] = useState<string | null>(task.column_id);
   const [due, setDue] = useState<Date | undefined>(task.due_date ? new Date(task.due_date) : undefined);
   const [comments, setComments] = useState<Comment[]>([]);
   const [profiles, setProfiles] = useState<Record<string, Profile>>({});
   const [newComment, setNewComment] = useState("");
+  const [tick, setTick] = useState(0);
 
   useEffect(() => {
     setTitle(task.title);
     setDesc(task.description ?? "");
-    setStatus(task.status);
+    setColumnId(task.column_id);
     setDue(task.due_date ? new Date(task.due_date) : undefined);
   }, [task.id]);
+
+  useEffect(() => {
+    if (!openEntry) return;
+    const t = setInterval(() => setTick((x) => x + 1), 1000);
+    return () => clearInterval(t);
+  }, [openEntry?.id]);
+
+  const liveSeconds = openEntry
+    ? task.total_seconds + Math.floor((Date.now() - new Date(openEntry.started_at).getTime()) / 1000)
+    : task.total_seconds;
 
   const loadComments = async () => {
     const { data, error } = await supabase
@@ -75,15 +93,27 @@ export function TaskDialog({
     return () => { supabase.removeChannel(ch); };
   }, [task.id]);
 
-  const save = async (patch: Partial<Task>) => {
+  const save = async (patch: Partial<{ title: string; description: string | null; column_id: string | null; due_date: string | null }>) => {
     const { data, error } = await supabase
       .from("tasks")
-      .update(patch)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .update(patch as any)
       .eq("id", task.id)
       .select()
       .single();
     if (error) return toast.error(error.message);
-    if (data) onChange(data as Task);
+    if (data) onChange(data as unknown as Task);
+  };
+
+  const toggleAssignee = async (userId: string) => {
+    const has = assignees.some((a) => a.id === userId);
+    if (has) {
+      const { error } = await supabase.from("task_assignees").delete().eq("task_id", task.id).eq("user_id", userId);
+      if (error) toast.error(error.message);
+    } else {
+      const { error } = await supabase.from("task_assignees").insert({ task_id: task.id, user_id: userId });
+      if (error) toast.error(error.message);
+    }
   };
 
   const addComment = async (e: React.FormEvent) => {
@@ -125,13 +155,13 @@ export function TaskDialog({
           <div>
             <Label className="text-xs uppercase text-muted-foreground">Coluna</Label>
             <div className="flex flex-wrap gap-1.5 pt-1">
-              {COLUMNS.map((c) => (
+              {columns.map((c) => (
                 <button
-                  key={c.key}
-                  onClick={() => { setStatus(c.key); save({ status: c.key }); }}
+                  key={c.id}
+                  onClick={() => { setColumnId(c.id); save({ column_id: c.id }); }}
                   className={cn(
                     "text-xs px-3 py-1 rounded-full border transition",
-                    status === c.key ? "bg-primary text-primary-foreground border-primary" : "bg-muted text-muted-foreground hover:bg-accent"
+                    columnId === c.id ? "bg-primary text-primary-foreground border-primary" : "bg-muted text-muted-foreground hover:bg-accent"
                   )}
                 >{c.label}</button>
               ))}
@@ -163,6 +193,39 @@ export function TaskDialog({
                 )}
               </PopoverContent>
             </Popover>
+          </div>
+        </div>
+
+        <div className="rounded-lg border p-3 flex items-center gap-3">
+          <Timer className={`h-5 w-5 ${openEntry ? "text-primary animate-pulse" : "text-muted-foreground"}`} />
+          <div className="flex-1">
+            <div className="text-xs uppercase text-muted-foreground">Tempo total</div>
+            <div className="font-mono text-lg tabular-nums">{formatDurationLong(liveSeconds)}{tick < 0 ? "" : ""}</div>
+          </div>
+          {openEntry && <span className="text-xs text-primary font-medium">em execução</span>}
+        </div>
+
+        <div>
+          <Label className="text-xs uppercase text-muted-foreground mb-2 block">Responsáveis</Label>
+          <div className="flex flex-wrap gap-2">
+            {members.length === 0 && <p className="text-sm text-muted-foreground">Adicione membros ao projeto para atribuir tarefas.</p>}
+            {members.map((m) => {
+              const has = assignees.some((a) => a.id === m.id);
+              const name = m.display_name || m.email || "?";
+              return (
+                <button
+                  key={m.id}
+                  onClick={() => toggleAssignee(m.id)}
+                  className={cn(
+                    "flex items-center gap-2 px-2.5 py-1 rounded-full border text-xs transition",
+                    has ? "bg-primary text-primary-foreground border-primary" : "bg-muted text-muted-foreground hover:bg-accent"
+                  )}
+                >
+                  {has && <UserCheck className="h-3 w-3" />}
+                  {name}
+                </button>
+              );
+            })}
           </div>
         </div>
 

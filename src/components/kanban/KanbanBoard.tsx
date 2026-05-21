@@ -20,25 +20,35 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { ArrowLeft, KanbanSquare, LogOut, Plus } from "lucide-react";
+import { ArrowLeft, LogOut, Plus, Users, Settings2 } from "lucide-react";
 import { Column } from "./Column";
 import { TaskCardView } from "./TaskCard";
 import { TaskDialog } from "./TaskDialog";
-import type { Project, Task, TaskStatus } from "./types";
-import { COLUMNS } from "./types";
+import { MembersDialog } from "./MembersDialog";
+import { ColumnsDialog } from "./ColumnsDialog";
+import type { Project, ProjectColumn, Task, Profile, TaskTimeEntry } from "./types";
 
 export function KanbanBoard({ projectId }: { projectId: string }) {
   const { user, signOut } = useAuth();
   const [project, setProject] = useState<Project | null>(null);
+  const [columns, setColumns] = useState<ProjectColumn[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [assigneesByTask, setAssigneesByTask] = useState<Record<string, Profile[]>>({});
+  const [openEntries, setOpenEntries] = useState<Record<string, TaskTimeEntry>>({});
+  const [members, setMembers] = useState<Profile[]>([]);
+  const [isOwner, setIsOwner] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [openTask, setOpenTask] = useState<Task | null>(null);
   const [newOpen, setNewOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newDesc, setNewDesc] = useState("");
-  const [newStatus, setNewStatus] = useState<TaskStatus>("todo");
+  const [newColumnId, setNewColumnId] = useState<string>("");
+  const [membersOpen, setMembersOpen] = useState(false);
+  const [columnsOpen, setColumnsOpen] = useState(false);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
+  const sortedColumns = useMemo(() => [...columns].sort((a, b) => a.position - b.position), [columns]);
 
   const loadProject = async () => {
     const { data, error } = await supabase.from("projects").select("*").eq("id", projectId).maybeSingle();
@@ -46,43 +56,104 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
     setProject((data as Project) ?? null);
   };
 
-  const load = async () => {
+  const loadColumns = async () => {
+    const { data, error } = await supabase
+      .from("project_columns")
+      .select("*")
+      .eq("project_id", projectId)
+      .order("position", { ascending: true });
+    if (error) return toast.error(error.message);
+    const list = (data ?? []) as ProjectColumn[];
+    setColumns(list);
+    if (!newColumnId && list.length) setNewColumnId(list[0].id);
+  };
+
+  const loadMembers = async () => {
+    const { data: ms } = await supabase
+      .from("project_members")
+      .select("user_id, role")
+      .eq("project_id", projectId);
+    const list = (ms ?? []) as { user_id: string; role: "owner" | "member" }[];
+    setIsOwner(list.some((m) => m.user_id === user?.id && m.role === "owner"));
+    if (list.length) {
+      const { data: ps } = await supabase
+        .from("profiles")
+        .select("id, display_name, email")
+        .in("id", list.map((m) => m.user_id));
+      setMembers((ps ?? []) as Profile[]);
+    }
+  };
+
+  const loadTasks = async () => {
     const { data, error } = await supabase
       .from("tasks")
       .select("*")
       .eq("project_id", projectId)
       .order("position", { ascending: true });
     if (error) return toast.error(error.message);
-    setTasks((data ?? []) as Task[]);
+    const list = (data ?? []) as unknown as Task[];
+    setTasks(list);
+    if (list.length) {
+      const ids = list.map((t) => t.id);
+      const [{ data: aData }, { data: eData }] = await Promise.all([
+        supabase.from("task_assignees").select("task_id, user_id").in("task_id", ids),
+        supabase.from("task_time_entries").select("*").in("task_id", ids).is("ended_at", null),
+      ]);
+      const assignees = (aData ?? []) as { task_id: string; user_id: string }[];
+      const userIds = Array.from(new Set(assignees.map((a) => a.user_id)));
+      let profMap: Record<string, Profile> = {};
+      if (userIds.length) {
+        const { data: ps } = await supabase.from("profiles").select("id, display_name, email").in("id", userIds);
+        (ps ?? []).forEach((p) => { profMap[p.id] = p as Profile; });
+      }
+      const map: Record<string, Profile[]> = {};
+      assignees.forEach((a) => {
+        if (!map[a.task_id]) map[a.task_id] = [];
+        if (profMap[a.user_id]) map[a.task_id].push(profMap[a.user_id]);
+      });
+      setAssigneesByTask(map);
+
+      const entriesMap: Record<string, TaskTimeEntry> = {};
+      ((eData ?? []) as TaskTimeEntry[]).forEach((e) => { entriesMap[e.task_id] = e; });
+      setOpenEntries(entriesMap);
+    } else {
+      setAssigneesByTask({});
+      setOpenEntries({});
+    }
   };
 
   useEffect(() => {
     loadProject();
-    load();
+    loadColumns();
+    loadMembers();
+    loadTasks();
     const ch = supabase
-      .channel(`tasks-rt-${projectId}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "tasks", filter: `project_id=eq.${projectId}` },
-        () => load()
-      )
+      .channel(`board-${projectId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "tasks", filter: `project_id=eq.${projectId}` }, () => loadTasks())
+      .on("postgres_changes", { event: "*", schema: "public", table: "project_columns", filter: `project_id=eq.${projectId}` }, () => loadColumns())
+      .on("postgres_changes", { event: "*", schema: "public", table: "project_members", filter: `project_id=eq.${projectId}` }, () => loadMembers())
+      .on("postgres_changes", { event: "*", schema: "public", table: "task_assignees" }, () => loadTasks())
+      .on("postgres_changes", { event: "*", schema: "public", table: "task_time_entries" }, () => loadTasks())
       .subscribe();
     return () => { supabase.removeChannel(ch); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
   const grouped = useMemo(() => {
-    const g: Record<TaskStatus, Task[]> = { todo: [], in_progress: [], review: [], done: [] };
-    for (const t of tasks) g[t.status].push(t);
+    const g: Record<string, Task[]> = {};
+    sortedColumns.forEach((c) => { g[c.id] = []; });
+    for (const t of tasks) {
+      if (t.column_id && g[t.column_id]) g[t.column_id].push(t);
+    }
     return g;
-  }, [tasks]);
+  }, [tasks, sortedColumns]);
 
   const active = activeId ? tasks.find((t) => t.id === activeId) ?? null : null;
 
-  const findContainer = (id: string): TaskStatus | null => {
-    if (COLUMNS.some((c) => c.key === id)) return id as TaskStatus;
+  const findContainer = (id: string): string | null => {
+    if (id.startsWith("col:")) return id.slice(4);
     const t = tasks.find((x) => x.id === id);
-    return t ? t.status : null;
+    return t?.column_id ?? null;
   };
 
   const onDragStart = (e: DragStartEvent) => setActiveId(String(e.active.id));
@@ -93,7 +164,7 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
     const from = findContainer(String(active.id));
     const to = findContainer(String(over.id));
     if (!from || !to || from === to) return;
-    setTasks((prev) => prev.map((t) => (t.id === active.id ? { ...t, status: to } : t)));
+    setTasks((prev) => prev.map((t) => (t.id === active.id ? { ...t, column_id: to } : t)));
   };
 
   const onDragEnd = async (e: DragEndEvent) => {
@@ -105,9 +176,9 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
     const targetCol = findContainer(overIdStr);
     if (!targetCol) return;
 
-    const colItems = tasks.filter((t) => t.status === targetCol).map((t) => t.id);
+    const colItems = tasks.filter((t) => t.column_id === targetCol).map((t) => t.id);
     const oldIndex = colItems.indexOf(activeIdStr);
-    const newIndex = COLUMNS.some((c) => c.key === overIdStr)
+    const newIndex = overIdStr.startsWith("col:")
       ? colItems.length - 1
       : colItems.indexOf(overIdStr);
     let nextOrder = colItems;
@@ -116,18 +187,16 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
     }
 
     const updated = tasks.map((t) => {
-      if (t.status !== targetCol) return t;
+      if (t.column_id !== targetCol) return t;
       const idx = nextOrder.indexOf(t.id);
       return { ...t, position: idx };
     });
     setTasks(updated);
 
-    const moved = updated.find((t) => t.id === activeIdStr);
-    if (!moved) return;
     const updates = updated
-      .filter((t) => t.status === targetCol)
+      .filter((t) => t.column_id === targetCol)
       .map((t) =>
-        supabase.from("tasks").update({ status: t.status, position: t.position }).eq("id", t.id)
+        supabase.from("tasks").update({ column_id: t.column_id, position: t.position }).eq("id", t.id)
       );
     const results = await Promise.all(updates);
     const err = results.find((r) => r.error);
@@ -136,12 +205,13 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
 
   const createTask = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !newTitle.trim()) return;
-    const pos = (grouped[newStatus].at(-1)?.position ?? -1) + 1;
+    if (!user || !newTitle.trim() || !newColumnId) return;
+    const colTasks = grouped[newColumnId] ?? [];
+    const pos = (colTasks.at(-1)?.position ?? -1) + 1;
     const { error } = await supabase.from("tasks").insert({
       title: newTitle.trim(),
       description: newDesc,
-      status: newStatus,
+      column_id: newColumnId,
       position: pos,
       created_by: user.id,
       project_id: projectId,
@@ -160,10 +230,7 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
               <ArrowLeft className="h-4 w-4" />
             </Link>
             <div className="flex items-center gap-2 font-semibold min-w-0">
-              <span
-                className="h-3 w-3 rounded-full shrink-0"
-                style={{ background: project?.color ?? "var(--primary)" }}
-              />
+              <span className="h-3 w-3 rounded-full shrink-0" style={{ background: project?.color ?? "var(--primary)" }} />
               <span className="truncate">{project?.name ?? "Projeto"}</span>
               {project?.client && (
                 <span className="text-xs font-normal text-muted-foreground truncate">· {project.client}</span>
@@ -171,6 +238,12 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={() => setMembersOpen(true)}>
+              <Users className="h-4 w-4 mr-1" /> Membros
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setColumnsOpen(true)}>
+              <Settings2 className="h-4 w-4 mr-1" /> Colunas
+            </Button>
             <Dialog open={newOpen} onOpenChange={setNewOpen}>
               <DialogTrigger asChild>
                 <Button size="sm"><Plus className="h-4 w-4 mr-1" /> Nova tarefa</Button>
@@ -189,13 +262,13 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
                   <div>
                     <Label>Coluna</Label>
                     <div className="flex flex-wrap gap-2 pt-1">
-                      {COLUMNS.map((c) => (
+                      {sortedColumns.map((c) => (
                         <button
                           type="button"
-                          key={c.key}
-                          onClick={() => setNewStatus(c.key)}
+                          key={c.id}
+                          onClick={() => setNewColumnId(c.id)}
                           className={`text-xs px-3 py-1 rounded-full border transition ${
-                            newStatus === c.key ? "bg-primary text-primary-foreground border-primary" : "bg-muted text-muted-foreground"
+                            newColumnId === c.id ? "bg-primary text-primary-foreground border-primary" : "bg-muted text-muted-foreground"
                           }`}
                         >
                           {c.label}
@@ -219,28 +292,46 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
       <main className="flex-1 overflow-x-auto">
         <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={onDragStart} onDragOver={onDragOver} onDragEnd={onDragEnd}>
           <div className="flex gap-4 p-6 min-w-max h-[calc(100vh-3.5rem)]">
-            {COLUMNS.map((col) => (
-              <Column key={col.key} column={col} items={grouped[col.key]}>
-                <SortableContext items={grouped[col.key].map((t) => t.id)} strategy={verticalListSortingStrategy}>
-                  {grouped[col.key].map((t) => (
-                    <TaskCardView key={t.id} task={t} onOpen={() => setOpenTask(t)} />
-                  ))}
-                </SortableContext>
-              </Column>
-            ))}
+            {sortedColumns.map((col) => {
+              const items = grouped[col.id] ?? [];
+              const isDoneCol = col.position === Math.max(...sortedColumns.map((c) => c.position));
+              return (
+                <Column key={col.id} column={col} count={items.length}>
+                  <SortableContext items={items.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+                    {items.map((t) => (
+                      <TaskCardView
+                        key={t.id}
+                        task={t}
+                        assignees={assigneesByTask[t.id]}
+                        openEntry={openEntries[t.id] ?? null}
+                        isDone={isDoneCol}
+                        onOpen={() => setOpenTask(t)}
+                      />
+                    ))}
+                  </SortableContext>
+                </Column>
+              );
+            })}
           </div>
-          <DragOverlay>{active ? <TaskCardView task={active} dragging /> : null}</DragOverlay>
+          <DragOverlay>{active ? <TaskCardView task={active} assignees={assigneesByTask[active.id]} openEntry={openEntries[active.id] ?? null} dragging /> : null}</DragOverlay>
         </DndContext>
       </main>
 
       {openTask && (
         <TaskDialog
           task={openTask}
+          columns={sortedColumns}
+          members={members}
+          assignees={assigneesByTask[openTask.id] ?? []}
+          openEntry={openEntries[openTask.id] ?? null}
           onClose={() => setOpenTask(null)}
           onChange={(t) => setOpenTask(t)}
-          onDeleted={() => { setOpenTask(null); load(); }}
+          onDeleted={() => { setOpenTask(null); loadTasks(); }}
         />
       )}
+
+      <MembersDialog projectId={projectId} isOwner={isOwner} open={membersOpen} onClose={() => setMembersOpen(false)} />
+      <ColumnsDialog projectId={projectId} columns={columns} isOwner={isOwner} open={columnsOpen} onClose={() => setColumnsOpen(false)} />
     </div>
   );
 }
