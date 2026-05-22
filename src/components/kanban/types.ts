@@ -1,8 +1,10 @@
+export type ColumnKind = "todo" | "in_progress" | "review" | "done" | "custom";
+
 export type Task = {
   id: string;
   title: string;
   description: string | null;
-  status: string; // legacy enum, ignored
+  status: string;
   column_id: string | null;
   due_date: string | null;
   position: number;
@@ -38,6 +40,7 @@ export type ProjectColumn = {
   position: number;
   color: string;
   is_in_progress: boolean;
+  kind: ColumnKind;
 };
 
 export type ProjectMember = {
@@ -56,11 +59,31 @@ export type TaskTimeEntry = {
   ended_at: string | null;
 };
 
+export type TaskAttachment = {
+  id: string;
+  task_id: string;
+  comment_id: string | null;
+  uploader_id: string;
+  path: string;
+  name: string;
+  mime: string | null;
+  size: number | null;
+  created_at: string;
+};
+
 export type Profile = {
   id: string;
   display_name: string | null;
   email: string | null;
+  avatar_url?: string | null;
 };
+
+export const PERSONAL_COLUMNS: { kind: ColumnKind; label: string; color: string }[] = [
+  { kind: "todo", label: "A Fazer", color: "#94a3b8" },
+  { kind: "in_progress", label: "Em Andamento", color: "#1e88e5" },
+  { kind: "review", label: "Revisão", color: "#f59e0b" },
+  { kind: "done", label: "Concluído", color: "#10b981" },
+];
 
 export function formatDuration(seconds: number): string {
   const s = Math.max(0, Math.floor(seconds));

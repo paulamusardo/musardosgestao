@@ -20,7 +20,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { ArrowLeft, LogOut, Plus, Users, Settings2 } from "lucide-react";
+import { ArrowLeft, Plus, Users, Settings2 } from "lucide-react";
 import { Column } from "./Column";
 import { TaskCardView } from "./TaskCard";
 import { TaskDialog } from "./TaskDialog";
@@ -29,7 +29,7 @@ import { ColumnsDialog } from "./ColumnsDialog";
 import type { Project, ProjectColumn, Task, Profile, TaskTimeEntry } from "./types";
 
 export function KanbanBoard({ projectId }: { projectId: string }) {
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const [project, setProject] = useState<Project | null>(null);
   const [columns, setColumns] = useState<ProjectColumn[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -222,8 +222,9 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
-      <header className="border-b bg-card/80 backdrop-blur sticky top-0 z-10">
+    <div className="flex flex-col h-[calc(100vh-3rem)] bg-background">
+      <header className="border-b bg-card/60 backdrop-blur sticky top-0 z-10">
+
         <div className="px-6 h-14 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
             <Link to="/projects" className="text-muted-foreground hover:text-foreground">
@@ -282,9 +283,6 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
                   </div>
                 </form>
               </DialogContent>
-            </Dialog>
-            <div className="text-xs text-muted-foreground hidden sm:block">{user?.email}</div>
-            <Button size="sm" variant="ghost" onClick={signOut}><LogOut className="h-4 w-4" /></Button>
           </div>
         </div>
       </header>

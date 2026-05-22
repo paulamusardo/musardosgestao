@@ -1,63 +1,75 @@
-## Objetivo
+## Identidade visual Musardos
 
-Refinar o Kanban com controle de acesso por projeto, edição de projetos/tarefas, colunas customizáveis, responsáveis múltiplos e medição automática de tempo.
+Inspirada em musardos.com: azul vibrante (#1E88E5 / `oklch(0.62 0.18 250)`), branco, cantos suaves, marca "M" em quadrado azul. Vou atualizar `src/styles.css`:
+
+- `--primary` → azul Musardos; `--accent` → azul claro
+- Tipografia: Inter (corpo) + um display sóbrio (Manrope) — coerente com o tom corporativo limpo do site
+- Logo: quadrado azul com "M" branca, igual ao do site, usada na sidebar e no login
 
 ## Banco de dados (migration)
 
-Novas tabelas:
+1. **Bucket `task-attachments`** (privado) + tabela `task_attachments`:
+   - `id`, `task_id`, `comment_id` (nullable, FK lógica), `uploader_id`, `path`, `name`, `mime`, `size`, `created_at`
+   - RLS: SELECT/INSERT/DELETE só para membros do projeto da tarefa (via `is_project_member`)
+   - Policies de storage no bucket: leitura/escrita só para membros do projeto correspondente (path = `{project_id}/{task_id}/{uuid}-{name}`)
 
-- `project_members` — `project_id`, `user_id`, `role` ('owner' | 'member'), `created_at`. Unique (project_id, user_id).
-- `project_columns` — `id`, `project_id`, `key` (slug), `label`, `position`, `color`. Substitui o enum fixo.
-- `task_assignees` — `task_id`, `user_id`. Unique (task_id, user_id).
-- `task_time_entries` — `id`, `task_id`, `started_at`, `ended_at` (nullable). Cada vez que a tarefa entra em "Em Andamento" abre uma entrada; ao sair, fecha. Soma de `ended_at - started_at` = tempo total.
+2. **Mapeamento de colunas entre projetos** (para "mover no kanban pessoal reflete no projeto"):
+   - Adicionar `kind` em `project_columns` (`'todo' | 'in_progress' | 'review' | 'done' | 'custom'`), default `'custom'`
+   - Trigger de seed atualiza as 4 padrão com o `kind` correto
+   - Quando o usuário arrasta no kanban pessoal entre as 4 colunas fixas, o backend procura a coluna do projeto da tarefa com o mesmo `kind` (fallback: primeira por position)
 
-Mudanças nas existentes:
-
-- `tasks.status` (enum) → `tasks.column_id` (uuid → project_columns). Mantemos um campo `status_legacy` durante migração e populamos colunas padrão (A Fazer, Em Andamento, Revisão, Concluído) para cada projeto existente, mapeando as tarefas.
-- `tasks.total_seconds` (int, default 0) — cache do tempo somado, atualizado por trigger ao fechar uma entrada.
-
-Função/trigger:
-
-- `is_project_member(_project_id, _user_id)` SECURITY DEFINER para usar nas RLS sem recursão.
-- Trigger em `tasks` (AFTER UPDATE de column_id): se nova coluna é "em andamento" abre `task_time_entries`; se sai de "em andamento" fecha a aberta e soma em `total_seconds`. A coluna "em andamento" é identificada por uma flag `is_in_progress boolean` em `project_columns` (uma por projeto, default na coluna padrão criada).
-
-RLS (resumo em linguagem simples):
-
-- Projetos: visíveis apenas para o dono e membros convidados. Só o dono edita dados do projeto e gerencia membros/colunas. Membros editam tarefas.
-- Tarefas/comentários/colunas/assignees/time_entries: acessíveis apenas a membros do projeto correspondente (via `is_project_member`).
+3. Realtime: adicionar `task_attachments` à publicação.
 
 ## Frontend
 
-**Lista de projetos (`ProjectsList`)**
-- Botão "Editar" no card → dialog com nome, cliente, cor.
-- Mostra apenas projetos onde o usuário é dono ou membro (já garantido pela RLS).
+### Layout com sidebar (`src/routes/_authenticated.tsx`)
 
-**Tela do projeto (`KanbanBoard`)**
-- Header ganha botões: "Membros" (dialog para convidar por e-mail, listar/remover, só visível ao dono) e "Configurar colunas".
-- "Configurar colunas": dialog para criar/renomear/reordenar/excluir colunas e escolher cor e qual é a coluna "em andamento".
-- Colunas renderizadas a partir de `project_columns` (não mais da constante COLUMNS).
+Substituir o `<Outlet/>` por `SidebarProvider` + `AppSidebar` + área principal com `SidebarTrigger` no header. Sidebar (collapsible="icon"):
 
-**Dialog da tarefa (`TaskDialog`)**
-- Novo bloco "Responsáveis": multi-select com membros do projeto, salva em `task_assignees`.
-- Novo bloco "Tempo gasto": mostra `total_seconds` formatado (HH:MM:SS) + indicador "rodando" quando há entrada aberta. Atualiza via realtime.
-- Seletor de coluna passa a usar `project_columns` do projeto.
+- **Meu Kanban** → `/me`
+- **Calendário** → `/calendar`
+- **Projetos** (grupo expansível, lista projetos do usuário via query) → cada item vai para `/projects/$id`
+- **Perfil** → `/profile`
+- Rodapé: avatar + email + sair
 
-**Card da tarefa (`TaskCard`)**
-- Avatares dos responsáveis (até 3 + "+N").
-- Badge com tempo total quando > 0; ícone pulsando quando cronômetro está rodando.
+### Novas rotas
+
+- `src/routes/_authenticated.me.tsx` — Kanban pessoal. 4 colunas fixas (A Fazer / Em Andamento / Revisão / Concluído). Lista tarefas onde `auth.uid()` está em `task_assignees`. Drag-and-drop reusa lógica do `KanbanBoard` mas resolve `column_id` no projeto destino via `kind`. Badge no card mostra o projeto (cor + nome).
+- `src/routes/_authenticated.calendar.tsx` — Calendário mensal (componente próprio, sem libs novas; grade 7×N). Toggle "Minhas / Todos os projetos". Cada célula mostra pílulas coloridas por projeto, clicáveis para abrir o `TaskDialog`. Navegação ‹ mês › ano.
+- `src/routes/_authenticated.profile.tsx` — Editar `display_name` em `profiles`, trocar avatar (bucket `avatars` público), trocar senha via `supabase.auth.updateUser`.
+- `src/routes/_authenticated.index.tsx` — redirect para `/me`.
+
+Atualizar `src/routes/index.tsx` para redirect → `/me` quando logado.
+
+### Anexos em descrição/comentário
+
+Novo componente `AttachmentList` + `AttachmentUploader`:
+- Upload via `supabase.storage.from('task-attachments').upload(...)`
+- Lista miniaturas para imagens, ícone + nome para outros, player nativo para vídeo, link para PDF/doc
+- URL via `createSignedUrl(path, 3600)` (bucket privado)
+- Integrado em:
+  - `TaskDialog` — bloco "Anexos" abaixo da descrição
+  - `CommentItem` / form de novo comentário — botão clipe que adiciona o arquivo ao comentário ao postar
+
+### Atualização de componentes existentes
+
+- `KanbanBoard.tsx` — header recebe título do projeto + breadcrumb e o botão "Voltar" agora navega via sidebar (manter consistência)
+- `TaskCard.tsx` — indicador de anexos (clipe + contagem)
+- `ProjectsList.tsx` — passa a ser usado dentro de `/projects` (rota índice) e também alimenta o menu lateral
 
 ## Detalhes técnicos
 
-- Convite de membro: busca em `profiles` pelo email; se existir, insere em `project_members`. Se não existir, mostra erro pedindo que a pessoa se cadastre primeiro (sem fluxo de convite por email nesta etapa).
-- Migração de dados: para cada projeto existente, criar as 4 colunas padrão e fazer UPDATE em tasks mapeando status→column_id. Inserir o `created_by` de cada projeto em `project_members` como 'owner'.
-- Tempo: o cálculo "ao vivo" no frontend soma `total_seconds + (now - entrada_aberta.started_at)` quando há entrada aberta, atualizado a cada segundo via `setInterval`.
-- Realtime já ativo em tarefas/comentários; adicionar `project_members`, `project_columns`, `task_assignees`, `task_time_entries` à publicação.
+- Calendário sem nova dependência: gerar a grade com `date-fns` (já no projeto se houver, senão adicionar) — confirmar e instalar `date-fns` se necessário
+- Avatar: bucket público `avatars`, path `{user_id}/avatar.{ext}`, policies padrão (leitura pública, escrita só do dono)
+- Para "mover no pessoal reflete no projeto": função RPC `move_task_to_kind(task_id, kind)` que faz o lookup e UPDATE da `column_id` correta — evita lógica duplicada no client
+- Realtime mantém o kanban pessoal e o calendário em sincronia ao alterar tarefas/assignees
 
 ## Verificação
 
-1. Criar projeto, convidar segundo usuário por email → ele vê o projeto na lista.
-2. Editar nome/cor/cliente do projeto → reflete na lista.
-3. Adicionar nova coluna "Bloqueado" e reordenar → tarefas continuam nas colunas certas.
-4. Atribuir 2 responsáveis a uma tarefa → avatares aparecem no card.
-5. Mover tarefa para "Em Andamento", aguardar, mover para "Revisão" → tempo registrado; mover de volta e novamente → soma acumula.
-6. Usuário não-membro não consegue listar nem abrir o projeto (RLS).
+1. Sidebar abre/colapsa; itens ativos destacam corretamente
+2. `/me` lista só tarefas em que sou assignee, agrupadas nas 4 colunas
+3. Arrastar uma tarefa minha de "Em Andamento" para "Revisão" reflete no Kanban do projeto e dispara o cálculo de tempo
+4. Calendário mostra tarefas pela `due_date` no dia certo; toggle alterna escopo
+5. Upload de imagem na descrição da tarefa aparece para outro membro do projeto; usuário não-membro recebe 403 ao tentar URL assinada
+6. Perfil: trocar nome e avatar reflete em todos os lugares (cards, sidebar, comentários)
+7. Cores/logo Musardos aparecem em login, sidebar, botões primários

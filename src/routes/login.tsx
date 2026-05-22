@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { KanbanSquare } from "lucide-react";
+import { MusardosLogo } from "@/components/brand/MusardosLogo";
 
 export const Route = createFileRoute("/login")({ component: LoginPage });
 
@@ -21,7 +21,7 @@ function LoginPage() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (!loading && user) navigate({ to: "/board" });
+    if (!loading && user) navigate({ to: "/me" });
   }, [user, loading, navigate]);
 
   const signIn = async (e: React.FormEvent) => {
@@ -30,7 +30,7 @@ function LoginPage() {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setBusy(false);
     if (error) return toast.error(error.message);
-    navigate({ to: "/board" });
+    navigate({ to: "/me" });
   };
 
   const signUp = async (e: React.FormEvent) => {
@@ -39,7 +39,7 @@ function LoginPage() {
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: { emailRedirectTo: `${window.location.origin}/board`, data: { display_name: name } },
+      options: { emailRedirectTo: `${window.location.origin}/me`, data: { display_name: name } },
     });
     setBusy(false);
     if (error) return toast.error(error.message);
@@ -47,27 +47,29 @@ function LoginPage() {
   };
 
   const google = async () => {
-    const r = await lovable.auth.signInWithOAuth("google", { redirect_uri: `${window.location.origin}/board` });
+    const r = await lovable.auth.signInWithOAuth("google", { redirect_uri: `${window.location.origin}/me` });
     if (r.error) toast.error(r.error.message);
   };
 
   return (
     <div className="min-h-screen grid lg:grid-cols-2">
       <div className="hidden lg:flex flex-col justify-between bg-gradient-to-br from-primary to-accent p-12 text-primary-foreground">
-        <div className="flex items-center gap-2 text-lg font-semibold">
-          <KanbanSquare className="h-6 w-6" /> Flowboard
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-md bg-white text-primary text-xl font-bold flex items-center justify-center">M</div>
+          <span className="text-lg font-semibold">Musardos</span>
         </div>
         <div>
-          <h1 className="text-4xl font-bold leading-tight">O Kanban da sua equipe, na nuvem.</h1>
+          <h1 className="text-4xl font-bold leading-tight">Gestão de projetos da Musardos.</h1>
           <p className="mt-4 text-primary-foreground/80 max-w-md">
-            Arraste cards, marque prazos e converse em comentários reais — sincronizado em tempo real.
+            Kanban por projeto, calendário de entregas e tempo de execução automático — tudo sincronizado em tempo real.
           </p>
         </div>
-        <p className="text-sm text-primary-foreground/60">© Flowboard</p>
+        <p className="text-sm text-primary-foreground/60">© Musardos</p>
       </div>
 
       <div className="flex items-center justify-center p-6">
         <div className="w-full max-w-sm">
+          <div className="lg:hidden mb-6"><MusardosLogo size={40} withWordmark /></div>
           <h2 className="text-2xl font-bold mb-1">Bem-vindo</h2>
           <p className="text-sm text-muted-foreground mb-6">Entre ou crie sua conta para começar.</p>
 
