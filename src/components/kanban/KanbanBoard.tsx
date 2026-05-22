@@ -283,6 +283,7 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
                   </div>
                 </form>
               </DialogContent>
+            </Dialog>
           </div>
         </div>
       </header>
