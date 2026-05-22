@@ -7,14 +7,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { KanbanSquare, LogOut, Plus, Trash2, Users, Pencil } from "lucide-react";
+import { KanbanSquare, Plus, Trash2, Users, Pencil } from "lucide-react";
 import type { Project } from "./types";
 import { EditProjectDialog } from "./EditProjectDialog";
 
 const PALETTE = ["#6366f1", "#10b981", "#f59e0b", "#ef4444", "#06b6d4", "#a855f7", "#ec4899", "#64748b"];
 
 export function ProjectsList() {
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [open, setOpen] = useState(false);
@@ -80,18 +80,7 @@ export function ProjectsList() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b bg-card/80 backdrop-blur sticky top-0 z-10">
-        <div className="px-6 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-2 font-semibold">
-            <KanbanSquare className="h-5 w-5 text-primary" />
-            <span>Flowboard</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="text-xs text-muted-foreground hidden sm:block">{user?.email}</div>
-            <Button size="sm" variant="ghost" onClick={signOut}><LogOut className="h-4 w-4" /></Button>
-          </div>
-        </div>
-      </header>
+
 
       <main className="max-w-6xl mx-auto px-6 py-10">
         <div className="flex items-end justify-between mb-8">
