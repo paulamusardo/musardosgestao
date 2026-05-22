@@ -15,6 +15,7 @@ import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import type { Task, Comment, ProjectColumn, Profile, TaskTimeEntry } from "./types";
 import { formatDurationLong } from "./types";
+import { AttachmentList } from "./AttachmentList";
 
 export function TaskDialog({
   task,
@@ -239,6 +240,11 @@ export function TaskDialog({
             placeholder="Adicione mais detalhes…"
             className="mt-1"
           />
+          {task.project_id && (
+            <div className="mt-3">
+              <AttachmentList taskId={task.id} projectId={task.project_id} commentId={null} />
+            </div>
+          )}
         </div>
 
         <div>
@@ -269,6 +275,11 @@ export function TaskDialog({
                       )}
                     </div>
                     <p className="text-sm mt-0.5 whitespace-pre-wrap break-words">{c.content}</p>
+                    {task.project_id && (
+                      <div className="mt-2">
+                        <AttachmentList taskId={task.id} projectId={task.project_id} commentId={c.id} compact />
+                      </div>
+                    )}
                   </div>
                 </div>
               );

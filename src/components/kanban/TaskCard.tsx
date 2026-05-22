@@ -6,6 +6,7 @@ import { format, isPast, isToday } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import type { Task, Profile, TaskTimeEntry } from "./types";
 import { formatDuration } from "./types";
+import { AttachmentCount } from "./AttachmentList";
 
 export function TaskCardView({
   task,
@@ -76,6 +77,7 @@ export function TaskCardView({
             {formatDuration(liveSeconds)}
           </div>
         )}
+        <AttachmentCount taskId={task.id} />
         <div className="ml-auto flex -space-x-1.5">
           {(assignees ?? []).slice(0, 3).map((p) => {
             const name = p.display_name || p.email || "?";
