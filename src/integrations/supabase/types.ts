@@ -48,18 +48,21 @@ export type Database = {
       }
       profiles: {
         Row: {
+          avatar_url: string | null
           created_at: string
           display_name: string | null
           email: string | null
           id: string
         }
         Insert: {
+          avatar_url?: string | null
           created_at?: string
           display_name?: string | null
           email?: string | null
           id: string
         }
         Update: {
+          avatar_url?: string | null
           created_at?: string
           display_name?: string | null
           email?: string | null
@@ -73,6 +76,7 @@ export type Database = {
           created_at: string
           id: string
           is_in_progress: boolean
+          kind: Database["public"]["Enums"]["column_kind"]
           label: string
           position: number
           project_id: string
@@ -82,6 +86,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_in_progress?: boolean
+          kind?: Database["public"]["Enums"]["column_kind"]
           label: string
           position?: number
           project_id: string
@@ -91,6 +96,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_in_progress?: boolean
+          kind?: Database["public"]["Enums"]["column_kind"]
           label?: string
           position?: number
           project_id?: string
@@ -186,6 +192,57 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "task_assignees_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      task_attachments: {
+        Row: {
+          comment_id: string | null
+          created_at: string
+          id: string
+          mime: string | null
+          name: string
+          path: string
+          size: number | null
+          task_id: string
+          uploader_id: string
+        }
+        Insert: {
+          comment_id?: string | null
+          created_at?: string
+          id?: string
+          mime?: string | null
+          name: string
+          path: string
+          size?: number | null
+          task_id: string
+          uploader_id: string
+        }
+        Update: {
+          comment_id?: string | null
+          created_at?: string
+          id?: string
+          mime?: string | null
+          name?: string
+          path?: string
+          size?: number | null
+          task_id?: string
+          uploader_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_attachments_comment_id_fkey"
+            columns: ["comment_id"]
+            isOneToOne: false
+            referencedRelation: "comments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_attachments_task_id_fkey"
             columns: ["task_id"]
             isOneToOne: false
             referencedRelation: "tasks"
@@ -295,8 +352,16 @@ export type Database = {
         Args: { _project_id: string; _user_id: string }
         Returns: boolean
       }
+      move_task_to_kind: {
+        Args: {
+          _kind: Database["public"]["Enums"]["column_kind"]
+          _task_id: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
+      column_kind: "todo" | "in_progress" | "review" | "done" | "custom"
       task_status: "todo" | "in_progress" | "review" | "done"
     }
     CompositeTypes: {
@@ -425,6 +490,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      column_kind: ["todo", "in_progress", "review", "done", "custom"],
       task_status: ["todo", "in_progress", "review", "done"],
     },
   },
