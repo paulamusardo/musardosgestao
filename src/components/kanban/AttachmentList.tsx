@@ -197,3 +197,53 @@ export function AttachmentCount({ taskId }: { taskId: string }) {
     </span>
   );
 }
+
+export function PinnedAttachmentPreview({ taskId }: { taskId: string }) {
+  const [att, setAtt] = useState<TaskAttachment | null>(null);
+  const [url, setUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      const { data } = await supabase
+        .from("task_attachments")
+        .select("*")
+        .eq("task_id", taskId)
+        .eq("pinned", true)
+        .maybeSingle();
+      if (!active) return;
+      const a = (data as TaskAttachment) ?? null;
+      setAtt(a);
+      if (a) {
+        const { data: signed } = await supabase.storage.from("task-attachments").createSignedUrl(a.path, 3600);
+        if (active) setUrl(signed?.signedUrl ?? null);
+      } else {
+        setUrl(null);
+      }
+    };
+    load();
+    const ch = supabase.channel(`att-pin-${taskId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "task_attachments", filter: `task_id=eq.${taskId}` }, load)
+      .subscribe();
+    return () => { active = false; supabase.removeChannel(ch); };
+  }, [taskId]);
+
+  if (!att) return null;
+  const isImg = att.mime?.startsWith("image/");
+  const isVid = att.mime?.startsWith("video/");
+
+  return (
+    <div className="mb-2 -mx-3 -mt-3 border-b bg-muted/40">
+      {isImg && url ? (
+        <img src={url} alt={att.name} className="w-full h-28 object-cover" />
+      ) : isVid && url ? (
+        <video src={url} muted className="w-full h-28 bg-black object-contain pointer-events-none" />
+      ) : (
+        <div className="flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground">
+          <FileText className="h-4 w-4 shrink-0" />
+          <span className="truncate">{att.name}</span>
+        </div>
+      )}
+    </div>
+  );
+}
