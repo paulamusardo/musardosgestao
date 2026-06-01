@@ -95,6 +95,20 @@ export function AttachmentList({
     if (error) toast.error(error.message);
   };
 
+  const togglePin = async (a: TaskAttachment) => {
+    if (a.pinned) {
+      const { error } = await supabase.from("task_attachments").update({ pinned: false }).eq("id", a.id);
+      if (error) toast.error(error.message);
+      return;
+    }
+    // unpin any previously pinned attachment for this task, then pin this one
+    const { error: e1 } = await supabase.from("task_attachments").update({ pinned: false }).eq("task_id", taskId).eq("pinned", true);
+    if (e1) return toast.error(e1.message);
+    const { error: e2 } = await supabase.from("task_attachments").update({ pinned: true }).eq("id", a.id);
+    if (e2) toast.error(e2.message);
+    else toast.success("Anexo fixado no card");
+  };
+
   return (
     <div className={compact ? "space-y-1.5" : "space-y-2"}>
       {items.length > 0 && (
