@@ -68,6 +68,7 @@ export type TaskAttachment = {
   name: string;
   mime: string | null;
   size: number | null;
+  pinned: boolean;
   created_at: string;
 };
 
