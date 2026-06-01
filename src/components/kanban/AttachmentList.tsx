@@ -47,7 +47,7 @@ export function AttachmentList({
 
   useEffect(() => {
     const ch = supabase
-      .channel(`att-${taskId}-${commentId ?? "null"}`)
+      .channel(`att-${taskId}-${commentId ?? "null"}-${crypto.randomUUID()}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "task_attachments", filter: `task_id=eq.${taskId}` }, load)
       .subscribe();
     return () => { supabase.removeChannel(ch); };
@@ -185,7 +185,7 @@ export function AttachmentCount({ taskId }: { taskId: string }) {
       setN(count ?? 0);
     };
     load();
-    const ch = supabase.channel(`attc-${taskId}`)
+    const ch = supabase.channel(`attc-${taskId}-${crypto.randomUUID()}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "task_attachments", filter: `task_id=eq.${taskId}` }, load)
       .subscribe();
     return () => { supabase.removeChannel(ch); };
@@ -222,7 +222,7 @@ export function PinnedAttachmentPreview({ taskId }: { taskId: string }) {
       }
     };
     load();
-    const ch = supabase.channel(`att-pin-${taskId}`)
+    const ch = supabase.channel(`att-pin-${taskId}-${crypto.randomUUID()}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "task_attachments", filter: `task_id=eq.${taskId}` }, load)
       .subscribe();
     return () => { active = false; supabase.removeChannel(ch); };
