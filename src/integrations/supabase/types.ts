@@ -359,6 +359,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      shares_project_with: {
+        Args: { _a: string; _b: string }
+        Returns: boolean
+      }
     }
     Enums: {
       column_kind: "todo" | "in_progress" | "review" | "done" | "custom"
