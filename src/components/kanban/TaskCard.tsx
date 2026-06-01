@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Calendar, Timer } from "lucide-react";
@@ -6,7 +6,7 @@ import { format, isPast, isToday } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import type { Task, Profile, TaskTimeEntry } from "./types";
 import { formatDuration } from "./types";
-import { AttachmentCount } from "./AttachmentList";
+import { AttachmentCount, PinnedAttachmentPreview } from "./AttachmentList";
 
 export function TaskCardView({
   task,
