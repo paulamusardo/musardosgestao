@@ -20,7 +20,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { ArrowLeft, Plus, Users, Settings2 } from "lucide-react";
+import { ArrowLeft, Plus, Users, Settings2, Filter } from "lucide-react";
 import { Column } from "./Column";
 import { TaskCardView } from "./TaskCard";
 import { TaskDialog } from "./TaskDialog";
@@ -45,6 +45,7 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
   const [newColumnId, setNewColumnId] = useState<string>("");
   const [membersOpen, setMembersOpen] = useState(false);
   const [columnsOpen, setColumnsOpen] = useState(false);
+  const [assigneeFilter, setAssigneeFilter] = useState<"all" | "unassigned" | "assigned" | string>("all");
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -139,14 +140,24 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
+  const filteredTasks = useMemo(() => {
+    if (assigneeFilter === "all") return tasks;
+    return tasks.filter((t) => {
+      const list = assigneesByTask[t.id] ?? [];
+      if (assigneeFilter === "unassigned") return list.length === 0;
+      if (assigneeFilter === "assigned") return list.length > 0;
+      return list.some((p) => p.id === assigneeFilter);
+    });
+  }, [tasks, assigneesByTask, assigneeFilter]);
+
   const grouped = useMemo(() => {
     const g: Record<string, Task[]> = {};
     sortedColumns.forEach((c) => { g[c.id] = []; });
-    for (const t of tasks) {
+    for (const t of filteredTasks) {
       if (t.column_id && g[t.column_id]) g[t.column_id].push(t);
     }
     return g;
-  }, [tasks, sortedColumns]);
+  }, [filteredTasks, sortedColumns]);
 
   const active = activeId ? tasks.find((t) => t.id === activeId) ?? null : null;
 
@@ -288,7 +299,50 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
         </div>
       </header>
 
+      <div className="px-6 py-2 border-b bg-card/40 flex items-center gap-2 flex-wrap text-xs">
+        <Filter className="h-3.5 w-3.5 text-muted-foreground" />
+        <span className="text-muted-foreground mr-1">Responsável:</span>
+        {[
+          { v: "all", label: "Todas" },
+          { v: "unassigned", label: "Sem responsável" },
+          { v: "assigned", label: "Com responsável" },
+        ].map((opt) => (
+          <button
+            key={opt.v}
+            onClick={() => setAssigneeFilter(opt.v)}
+            className={`px-2.5 py-1 rounded-full border transition ${
+              assigneeFilter === opt.v
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-background text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {opt.label}
+          </button>
+        ))}
+        {members.length > 0 && <span className="text-muted-foreground/60 mx-1">·</span>}
+        {members.map((m) => {
+          const name = m.display_name || m.email || "?";
+          const active = assigneeFilter === m.id;
+          return (
+            <button
+              key={m.id}
+              onClick={() => setAssigneeFilter(active ? "all" : m.id)}
+              className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full border transition ${
+                active ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground hover:text-foreground"
+              }`}
+              title={name}
+            >
+              <span className={`h-4 w-4 rounded-full text-[9px] font-semibold flex items-center justify-center ${active ? "bg-primary-foreground/20" : "bg-primary/15 text-primary"}`}>
+                {name.slice(0, 2).toUpperCase()}
+              </span>
+              <span className="truncate max-w-[8rem]">{name}</span>
+            </button>
+          );
+        })}
+      </div>
+
       <main className="flex-1 overflow-x-auto">
+
         <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={onDragStart} onDragOver={onDragOver} onDragEnd={onDragEnd}>
           <div className="flex gap-4 p-6 min-w-max h-[calc(100vh-3.5rem)]">
             {sortedColumns.map((col) => {

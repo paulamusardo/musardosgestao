@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Paperclip, Trash2, FileText, Download, Loader2, Upload } from "lucide-react";
+import { Paperclip, Trash2, FileText, Download, Loader2, Upload, Pin, PinOff } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
@@ -95,6 +95,20 @@ export function AttachmentList({
     if (error) toast.error(error.message);
   };
 
+  const togglePin = async (a: TaskAttachment) => {
+    if (a.pinned) {
+      const { error } = await supabase.from("task_attachments").update({ pinned: false }).eq("id", a.id);
+      if (error) toast.error(error.message);
+      return;
+    }
+    // unpin any previously pinned attachment for this task, then pin this one
+    const { error: e1 } = await supabase.from("task_attachments").update({ pinned: false }).eq("task_id", taskId).eq("pinned", true);
+    if (e1) return toast.error(e1.message);
+    const { error: e2 } = await supabase.from("task_attachments").update({ pinned: true }).eq("id", a.id);
+    if (e2) toast.error(e2.message);
+    else toast.success("Anexo fixado no card");
+  };
+
   return (
     <div className={compact ? "space-y-1.5" : "space-y-2"}>
       {items.length > 0 && (
@@ -104,7 +118,7 @@ export function AttachmentList({
             const isImg = a.mime?.startsWith("image/");
             const isVid = a.mime?.startsWith("video/");
             return (
-              <div key={a.id} className="group relative rounded-md border bg-muted/30 overflow-hidden">
+              <div key={a.id} className={`group relative rounded-md border bg-muted/30 overflow-hidden ${a.pinned ? "ring-2 ring-primary/60" : ""}`}>
                 {isImg && url ? (
                   <a href={url} target="_blank" rel="noreferrer" className="block">
                     <img src={url} alt={a.name} className="w-full h-32 object-cover" />
@@ -124,15 +138,25 @@ export function AttachmentList({
                     {url && <a href={url} target="_blank" rel="noreferrer" className="hover:text-foreground"><Download className="h-3 w-3" /></a>}
                   </div>
                 )}
-                {a.uploader_id === user?.id && (
+                <div className="absolute top-1 right-1 flex gap-1">
                   <button
-                    onClick={() => remove(a)}
-                    className="absolute top-1 right-1 p-1 rounded bg-card/90 border opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition"
-                    aria-label="Remover"
+                    onClick={() => togglePin(a)}
+                    className={`p-1 rounded bg-card/90 border transition ${a.pinned ? "text-primary opacity-100" : "text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground"}`}
+                    aria-label={a.pinned ? "Desafixar" : "Fixar no card"}
+                    title={a.pinned ? "Desafixar do card" : "Fixar no card"}
                   >
-                    <Trash2 className="h-3 w-3" />
+                    {a.pinned ? <PinOff className="h-3 w-3" /> : <Pin className="h-3 w-3" />}
                   </button>
-                )}
+                  {a.uploader_id === user?.id && (
+                    <button
+                      onClick={() => remove(a)}
+                      className="p-1 rounded bg-card/90 border opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition"
+                      aria-label="Remover"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
               </div>
             );
           })}
@@ -171,5 +195,55 @@ export function AttachmentCount({ taskId }: { taskId: string }) {
     <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
       <Paperclip className="h-3 w-3" /> {n}
     </span>
+  );
+}
+
+export function PinnedAttachmentPreview({ taskId }: { taskId: string }) {
+  const [att, setAtt] = useState<TaskAttachment | null>(null);
+  const [url, setUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      const { data } = await supabase
+        .from("task_attachments")
+        .select("*")
+        .eq("task_id", taskId)
+        .eq("pinned", true)
+        .maybeSingle();
+      if (!active) return;
+      const a = (data as TaskAttachment) ?? null;
+      setAtt(a);
+      if (a) {
+        const { data: signed } = await supabase.storage.from("task-attachments").createSignedUrl(a.path, 3600);
+        if (active) setUrl(signed?.signedUrl ?? null);
+      } else {
+        setUrl(null);
+      }
+    };
+    load();
+    const ch = supabase.channel(`att-pin-${taskId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "task_attachments", filter: `task_id=eq.${taskId}` }, load)
+      .subscribe();
+    return () => { active = false; supabase.removeChannel(ch); };
+  }, [taskId]);
+
+  if (!att) return null;
+  const isImg = att.mime?.startsWith("image/");
+  const isVid = att.mime?.startsWith("video/");
+
+  return (
+    <div className="mb-2 -mx-3 -mt-3 border-b bg-muted/40">
+      {isImg && url ? (
+        <img src={url} alt={att.name} className="w-full h-28 object-cover" />
+      ) : isVid && url ? (
+        <video src={url} muted className="w-full h-28 bg-black object-contain pointer-events-none" />
+      ) : (
+        <div className="flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground">
+          <FileText className="h-4 w-4 shrink-0" />
+          <span className="truncate">{att.name}</span>
+        </div>
+      )}
+    </div>
   );
 }

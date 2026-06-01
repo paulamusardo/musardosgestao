@@ -207,6 +207,7 @@ export type Database = {
           mime: string | null
           name: string
           path: string
+          pinned: boolean
           size: number | null
           task_id: string
           uploader_id: string
@@ -218,6 +219,7 @@ export type Database = {
           mime?: string | null
           name: string
           path: string
+          pinned?: boolean
           size?: number | null
           task_id: string
           uploader_id: string
@@ -229,6 +231,7 @@ export type Database = {
           mime?: string | null
           name?: string
           path?: string
+          pinned?: boolean
           size?: number | null
           task_id?: string
           uploader_id?: string
