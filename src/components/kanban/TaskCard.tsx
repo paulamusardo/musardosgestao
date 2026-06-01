@@ -40,6 +40,12 @@ export function TaskCardView({
     ? task.total_seconds + Math.floor((Date.now() - new Date(openEntry.started_at).getTime()) / 1000)
     : task.total_seconds;
 
+  // Track recent drag so the synthetic click after pointer release does not open the dialog.
+  const justDragged = useRef(false);
+  useEffect(() => {
+    if (isDragging) justDragged.current = true;
+  }, [isDragging]);
+
   return (
     <div
       ref={setNodeRef}
@@ -47,14 +53,19 @@ export function TaskCardView({
       {...attributes}
       {...listeners}
       onClick={(e) => {
+        if (justDragged.current) {
+          justDragged.current = false;
+          return;
+        }
         if (isDragging) return;
         e.stopPropagation();
         onOpen?.();
       }}
-      className={`group cursor-grab active:cursor-grabbing select-none rounded-lg border bg-card p-3 shadow-sm hover:shadow-md hover:border-primary/40 transition ${
+      className={`group cursor-grab active:cursor-grabbing select-none rounded-lg border bg-card p-3 shadow-sm hover:shadow-md hover:border-primary/40 transition overflow-hidden ${
         isDragging || dragging ? "opacity-60 ring-2 ring-primary" : ""
       }`}
     >
+      <PinnedAttachmentPreview taskId={task.id} />
       <div className="text-sm font-medium leading-snug">{task.title}</div>
       {task.description && (
         <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{task.description}</p>
