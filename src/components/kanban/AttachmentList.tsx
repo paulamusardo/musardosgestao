@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Paperclip, Trash2, FileText, Download, Loader2, Upload } from "lucide-react";
+import { Paperclip, Trash2, FileText, Download, Loader2, Upload, Pin, PinOff } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
