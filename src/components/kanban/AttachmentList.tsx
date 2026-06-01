@@ -118,7 +118,7 @@ export function AttachmentList({
             const isImg = a.mime?.startsWith("image/");
             const isVid = a.mime?.startsWith("video/");
             return (
-              <div key={a.id} className="group relative rounded-md border bg-muted/30 overflow-hidden">
+              <div key={a.id} className={`group relative rounded-md border bg-muted/30 overflow-hidden ${a.pinned ? "ring-2 ring-primary/60" : ""}`}>
                 {isImg && url ? (
                   <a href={url} target="_blank" rel="noreferrer" className="block">
                     <img src={url} alt={a.name} className="w-full h-32 object-cover" />
@@ -138,15 +138,25 @@ export function AttachmentList({
                     {url && <a href={url} target="_blank" rel="noreferrer" className="hover:text-foreground"><Download className="h-3 w-3" /></a>}
                   </div>
                 )}
-                {a.uploader_id === user?.id && (
+                <div className="absolute top-1 right-1 flex gap-1">
                   <button
-                    onClick={() => remove(a)}
-                    className="absolute top-1 right-1 p-1 rounded bg-card/90 border opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition"
-                    aria-label="Remover"
+                    onClick={() => togglePin(a)}
+                    className={`p-1 rounded bg-card/90 border transition ${a.pinned ? "text-primary opacity-100" : "text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground"}`}
+                    aria-label={a.pinned ? "Desafixar" : "Fixar no card"}
+                    title={a.pinned ? "Desafixar do card" : "Fixar no card"}
                   >
-                    <Trash2 className="h-3 w-3" />
+                    {a.pinned ? <PinOff className="h-3 w-3" /> : <Pin className="h-3 w-3" />}
                   </button>
-                )}
+                  {a.uploader_id === user?.id && (
+                    <button
+                      onClick={() => remove(a)}
+                      className="p-1 rounded bg-card/90 border opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition"
+                      aria-label="Remover"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
               </div>
             );
           })}
