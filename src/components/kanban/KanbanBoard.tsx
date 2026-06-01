@@ -45,6 +45,7 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
   const [newColumnId, setNewColumnId] = useState<string>("");
   const [membersOpen, setMembersOpen] = useState(false);
   const [columnsOpen, setColumnsOpen] = useState(false);
+  const [assigneeFilter, setAssigneeFilter] = useState<"all" | "unassigned" | "assigned" | string>("all");
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
