@@ -140,14 +140,24 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
+  const filteredTasks = useMemo(() => {
+    if (assigneeFilter === "all") return tasks;
+    return tasks.filter((t) => {
+      const list = assigneesByTask[t.id] ?? [];
+      if (assigneeFilter === "unassigned") return list.length === 0;
+      if (assigneeFilter === "assigned") return list.length > 0;
+      return list.some((p) => p.id === assigneeFilter);
+    });
+  }, [tasks, assigneesByTask, assigneeFilter]);
+
   const grouped = useMemo(() => {
     const g: Record<string, Task[]> = {};
     sortedColumns.forEach((c) => { g[c.id] = []; });
-    for (const t of tasks) {
+    for (const t of filteredTasks) {
       if (t.column_id && g[t.column_id]) g[t.column_id].push(t);
     }
     return g;
-  }, [tasks, sortedColumns]);
+  }, [filteredTasks, sortedColumns]);
 
   const active = activeId ? tasks.find((t) => t.id === activeId) ?? null : null;
 
