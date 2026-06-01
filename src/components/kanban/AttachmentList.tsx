@@ -222,7 +222,7 @@ export function PinnedAttachmentPreview({ taskId }: { taskId: string }) {
       }
     };
     load();
-    const ch = supabase.channel(`att-pin-${taskId}`)
+    const ch = supabase.channel(`att-pin-${taskId}-${crypto.randomUUID()}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "task_attachments", filter: `task_id=eq.${taskId}` }, load)
       .subscribe();
     return () => { active = false; supabase.removeChannel(ch); };
