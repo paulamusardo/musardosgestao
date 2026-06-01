@@ -47,7 +47,7 @@ export function AttachmentList({
 
   useEffect(() => {
     const ch = supabase
-      .channel(`att-${taskId}-${commentId ?? "null"}`)
+      .channel(`att-${taskId}-${commentId ?? "null"}-${crypto.randomUUID()}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "task_attachments", filter: `task_id=eq.${taskId}` }, load)
       .subscribe();
     return () => { supabase.removeChannel(ch); };
