@@ -6,6 +6,7 @@ import { format, isPast, isToday } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import type { Task, Profile, TaskTimeEntry } from "./types";
 import { formatDuration } from "./types";
+import { stripHtml } from "./RichTextEditor";
 import { AttachmentCount, PinnedAttachmentPreview } from "./AttachmentList";
 
 export function TaskCardView({
