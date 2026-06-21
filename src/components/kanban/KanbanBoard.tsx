@@ -281,24 +281,83 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
                     <Input id="t" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} required />
                   </div>
                   <div>
-                    <Label htmlFor="d">Descrição</Label>
-                    <Textarea id="d" value={newDesc} onChange={(e) => setNewDesc(e.target.value)} rows={3} />
+                    <Label>Descrição</Label>
+                    <RichTextEditor value={newDesc} onChange={setNewDesc} />
+                  </div>
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    <div>
+                      <Label>Coluna</Label>
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        {sortedColumns.map((c) => (
+                          <button
+                            type="button"
+                            key={c.id}
+                            onClick={() => setNewColumnId(c.id)}
+                            className={`text-xs px-3 py-1 rounded-full border transition ${
+                              newColumnId === c.id ? "bg-primary text-primary-foreground border-primary" : "bg-muted text-muted-foreground"
+                            }`}
+                          >
+                            {c.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <Label>Prazo</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button type="button" variant="outline" className="w-full justify-start font-normal mt-1">
+                            <CalIcon className="h-4 w-4 mr-2" />
+                            {newDue ? format(newDue, "PPP", { locale: ptBR }) : "Definir prazo"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={newDue}
+                            onSelect={setNewDue}
+                            initialFocus
+                            className={cn("p-3 pointer-events-auto")}
+                          />
+                          {newDue && (
+                            <div className="p-2 border-t">
+                              <Button type="button" variant="ghost" size="sm" className="w-full" onClick={() => setNewDue(undefined)}>
+                                Remover prazo
+                              </Button>
+                            </div>
+                          )}
+                        </PopoverContent>
+                      </Popover>
+                    </div>
                   </div>
                   <div>
-                    <Label>Coluna</Label>
-                    <div className="flex flex-wrap gap-2 pt-1">
-                      {sortedColumns.map((c) => (
-                        <button
-                          type="button"
-                          key={c.id}
-                          onClick={() => setNewColumnId(c.id)}
-                          className={`text-xs px-3 py-1 rounded-full border transition ${
-                            newColumnId === c.id ? "bg-primary text-primary-foreground border-primary" : "bg-muted text-muted-foreground"
-                          }`}
-                        >
-                          {c.label}
-                        </button>
-                      ))}
+                    <Label>Responsáveis</Label>
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {members.length === 0 && (
+                        <p className="text-xs text-muted-foreground">Adicione membros ao projeto para atribuir.</p>
+                      )}
+                      {members.map((m) => {
+                        const has = newAssignees.includes(m.id);
+                        const name = m.display_name || m.email || "?";
+                        return (
+                          <button
+                            type="button"
+                            key={m.id}
+                            onClick={() =>
+                              setNewAssignees((prev) =>
+                                prev.includes(m.id) ? prev.filter((x) => x !== m.id) : [...prev, m.id]
+                              )
+                            }
+                            className={cn(
+                              "flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs transition",
+                              has ? "bg-primary text-primary-foreground border-primary" : "bg-muted text-muted-foreground hover:bg-accent"
+                            )}
+                          >
+                            {has && <UserCheck className="h-3 w-3" />}
+                            {name}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                   <div className="flex justify-end gap-2 pt-2">
