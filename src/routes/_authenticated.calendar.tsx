@@ -23,6 +23,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { TaskDialog } from "@/components/kanban/TaskDialog";
 import type {
   Task,
@@ -54,6 +55,7 @@ function CalendarPage() {
   const [membersForOpen, setMembersForOpen] = useState<Profile[]>([]);
   const [assigneesForOpen, setAssigneesForOpen] = useState<Profile[]>([]);
   const [entryForOpen, setEntryForOpen] = useState<TaskTimeEntry | null>(null);
+  const [dayDialog, setDayDialog] = useState<Date | null>(null);
 
   const range = useMemo(() => {
     if (view === "day") return { start: startOfDay(cursor), end: endOfDay(cursor) };
@@ -410,13 +412,32 @@ function CalendarPage() {
       </div>
 
       {view === "month" && (
-        <MonthGrid cursor={cursor} tasksByDay={tasksByDay} projectsById={projectsById} onOpen={openDialog} />
+        <MonthGrid cursor={cursor} tasksByDay={tasksByDay} projectsById={projectsById} onOpen={openDialog} onOpenDay={(d) => setDayDialog(d)} />
       )}
       {view === "week" && (
-        <WeekGrid cursor={cursor} tasksByDay={tasksByDay} projectsById={projectsById} onOpen={openDialog} />
+        <WeekGrid cursor={cursor} tasksByDay={tasksByDay} projectsById={projectsById} onOpen={openDialog} onOpenDay={(d) => setDayDialog(d)} />
       )}
       {view === "day" && (
         <DayList date={cursor} tasks={tasksByDay.get(format(cursor, "yyyy-MM-dd")) ?? []} projectsById={projectsById} onOpen={openDialog} />
+      )}
+
+      {dayDialog && (
+        <Dialog open onOpenChange={(o) => !o && setDayDialog(null)}>
+          <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="capitalize">
+                {format(dayDialog, "EEEE, dd 'de' MMMM yyyy", { locale: ptBR })}
+              </DialogTitle>
+            </DialogHeader>
+            <DayList
+              date={dayDialog}
+              tasks={tasksByDay.get(format(dayDialog, "yyyy-MM-dd")) ?? []}
+              projectsById={projectsById}
+              onOpen={(t) => { setDayDialog(null); openDialog(t); }}
+              hideHeader
+            />
+          </DialogContent>
+        </Dialog>
       )}
 
       {openTask && (
@@ -459,11 +480,13 @@ function MonthGrid({
   tasksByDay,
   projectsById,
   onOpen,
+  onOpenDay,
 }: {
   cursor: Date;
   tasksByDay: Map<string, Task[]>;
   projectsById: Record<string, Project>;
   onOpen: (t: Task) => void;
+  onOpenDay: (d: Date) => void;
 }) {
   const days = useMemo(() => {
     const start = startOfWeek(startOfMonth(cursor), { weekStartsOn: 0 });
@@ -491,7 +514,8 @@ function MonthGrid({
           return (
             <div
               key={k}
-              className={`min-h-[110px] border-b border-r p-1.5 text-xs ${!inMonth ? "bg-muted/20 text-muted-foreground/60" : ""}`}
+              onClick={() => list.length > 0 && onOpenDay(d)}
+              className={`min-h-[110px] border-b border-r p-1.5 text-xs ${!inMonth ? "bg-muted/20 text-muted-foreground/60" : ""} ${list.length > 0 ? "cursor-pointer hover:bg-accent/40" : ""}`}
             >
               <div className="flex items-center justify-end mb-1">
                 <span
@@ -502,12 +526,17 @@ function MonthGrid({
                   {format(d, "d")}
                 </span>
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1" onClick={(e) => e.stopPropagation()}>
                 {list.slice(0, 3).map((t) => (
                   <TaskChip key={t.id} t={t} projectsById={projectsById} onOpen={onOpen} />
                 ))}
                 {list.length > 3 && (
-                  <div className="text-[10px] text-muted-foreground pl-1">+{list.length - 3} mais</div>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onOpenDay(d); }}
+                    className="text-[10px] text-primary hover:underline pl-1"
+                  >
+                    +{list.length - 3} mais — ver todas
+                  </button>
                 )}
               </div>
             </div>
@@ -523,11 +552,13 @@ function WeekGrid({
   tasksByDay,
   projectsById,
   onOpen,
+  onOpenDay,
 }: {
   cursor: Date;
   tasksByDay: Map<string, Task[]>;
   projectsById: Record<string, Project>;
   onOpen: (t: Task) => void;
+  onOpenDay: (d: Date) => void;
 }) {
   const days = useMemo(() => {
     const s = startOfWeek(cursor, { weekStartsOn: 0 });
@@ -552,11 +583,17 @@ function WeekGrid({
           const k = format(d, "yyyy-MM-dd");
           const list = tasksByDay.get(k) ?? [];
           return (
-            <div key={k} className="border-r p-2 space-y-1">
+            <div
+              key={k}
+              onClick={() => list.length > 0 && onOpenDay(d)}
+              className={`border-r p-2 space-y-1 ${list.length > 0 ? "cursor-pointer hover:bg-accent/30" : ""}`}
+            >
               {list.length === 0 && <div className="text-[11px] text-muted-foreground/60">—</div>}
-              {list.map((t) => (
-                <TaskChip key={t.id} t={t} projectsById={projectsById} onOpen={onOpen} />
-              ))}
+              <div onClick={(e) => e.stopPropagation()} className="space-y-1">
+                {list.map((t) => (
+                  <TaskChip key={t.id} t={t} projectsById={projectsById} onOpen={onOpen} />
+                ))}
+              </div>
             </div>
           );
         })}
@@ -570,17 +607,21 @@ function DayList({
   tasks,
   projectsById,
   onOpen,
+  hideHeader = false,
 }: {
   date: Date;
   tasks: Task[];
   projectsById: Record<string, Project>;
   onOpen: (t: Task) => void;
+  hideHeader?: boolean;
 }) {
   return (
-    <div className="rounded-xl border bg-card p-4">
-      <div className="text-sm text-muted-foreground mb-3 capitalize">
-        {format(date, "EEEE, dd 'de' MMMM", { locale: ptBR })}
-      </div>
+    <div className={hideHeader ? "" : "rounded-xl border bg-card p-4"}>
+      {!hideHeader && (
+        <div className="text-sm text-muted-foreground mb-3 capitalize">
+          {format(date, "EEEE, dd 'de' MMMM", { locale: ptBR })}
+        </div>
+      )}
       {tasks.length === 0 && (
         <div className="text-sm text-muted-foreground py-12 text-center">Nenhuma tarefa para este dia.</div>
       )}
