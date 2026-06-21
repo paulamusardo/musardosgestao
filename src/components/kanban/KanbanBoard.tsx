@@ -226,16 +226,22 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
     if (!user || !newTitle.trim() || !newColumnId) return;
     const colTasks = grouped[newColumnId] ?? [];
     const pos = (colTasks.at(-1)?.position ?? -1) + 1;
-    const { error } = await supabase.from("tasks").insert({
+    const { data: created, error } = await supabase.from("tasks").insert({
       title: newTitle.trim(),
       description: newDesc,
       column_id: newColumnId,
       position: pos,
       created_by: user.id,
       project_id: projectId,
-    });
+      due_date: newDue ? newDue.toISOString() : null,
+    }).select().single();
     if (error) return toast.error(error.message);
-    setNewTitle(""); setNewDesc(""); setNewOpen(false);
+    if (created && newAssignees.length) {
+      const rows = newAssignees.map((uid) => ({ task_id: (created as { id: string }).id, user_id: uid }));
+      const { error: aErr } = await supabase.from("task_assignees").insert(rows);
+      if (aErr) toast.error(aErr.message);
+    }
+    setNewTitle(""); setNewDesc(""); setNewDue(undefined); setNewAssignees([]); setNewOpen(false);
     toast.success("Tarefa criada");
   };
 
