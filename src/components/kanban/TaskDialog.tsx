@@ -46,6 +46,8 @@ export function TaskDialog({
   const [comments, setComments] = useState<Comment[]>([]);
   const [profiles, setProfiles] = useState<Record<string, Profile>>({});
   const [newComment, setNewComment] = useState("");
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [posting, setPosting] = useState(false);
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
