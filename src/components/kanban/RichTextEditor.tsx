@@ -132,12 +132,7 @@ export function RichTextView({ html, className }: { html: string; className?: st
   if (!html || !html.trim()) return null;
   return (
     <div
-      className={cn(
-        "prose prose-sm dark:prose-invert max-w-none",
-        "[&_ul[data-type='taskList']]:list-none [&_ul[data-type='taskList']]:pl-0",
-        "[&_ul[data-type='taskList']_li]:flex [&_ul[data-type='taskList']_li]:gap-2 [&_ul[data-type='taskList']_li]:items-start",
-        className
-      )}
+      className={cn("rte-content text-sm", className)}
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );
