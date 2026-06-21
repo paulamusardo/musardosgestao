@@ -23,6 +23,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { TaskDialog } from "@/components/kanban/TaskDialog";
 import type {
   Task,
@@ -54,6 +55,7 @@ function CalendarPage() {
   const [membersForOpen, setMembersForOpen] = useState<Profile[]>([]);
   const [assigneesForOpen, setAssigneesForOpen] = useState<Profile[]>([]);
   const [entryForOpen, setEntryForOpen] = useState<TaskTimeEntry | null>(null);
+  const [dayDialog, setDayDialog] = useState<Date | null>(null);
 
   const range = useMemo(() => {
     if (view === "day") return { start: startOfDay(cursor), end: endOfDay(cursor) };
