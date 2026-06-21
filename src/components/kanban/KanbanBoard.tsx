@@ -48,6 +48,8 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
   const [newTitle, setNewTitle] = useState("");
   const [newDesc, setNewDesc] = useState("");
   const [newColumnId, setNewColumnId] = useState<string>("");
+  const [newDue, setNewDue] = useState<Date | undefined>(undefined);
+  const [newAssignees, setNewAssignees] = useState<string[]>([]);
   const [membersOpen, setMembersOpen] = useState(false);
   const [columnsOpen, setColumnsOpen] = useState(false);
   const [assigneeFilter, setAssigneeFilter] = useState<"all" | "unassigned" | "assigned" | string>("all");
