@@ -51,13 +51,7 @@ export function RichTextEditor({ value, onChange, onBlur, placeholder, minHeight
     content: value || "",
     editorProps: {
       attributes: {
-        class: cn(
-          "prose prose-sm dark:prose-invert max-w-none focus:outline-none px-3 py-2",
-          "[&_ul[data-type='taskList']]:list-none [&_ul[data-type='taskList']]:pl-0",
-          "[&_ul[data-type='taskList']_li]:flex [&_ul[data-type='taskList']_li]:gap-2 [&_ul[data-type='taskList']_li]:items-start",
-          "[&_ul[data-type='taskList']_li>label]:mt-1",
-          "[&_ul[data-type='taskList']_li>div]:flex-1",
-        ),
+        class: "rte-content focus:outline-none px-3 py-2 text-sm",
       },
     },
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
