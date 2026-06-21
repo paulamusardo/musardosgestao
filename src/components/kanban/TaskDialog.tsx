@@ -16,6 +16,8 @@ import { toast } from "sonner";
 import type { Task, Comment, ProjectColumn, Profile, TaskTimeEntry } from "./types";
 import { formatDurationLong } from "./types";
 import { AttachmentList } from "./AttachmentList";
+import { ActivityList } from "./ActivityList";
+import { Paperclip, X } from "lucide-react";
 
 export function TaskDialog({
   task,
