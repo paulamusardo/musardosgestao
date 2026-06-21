@@ -123,12 +123,54 @@ export function TaskDialog({
 
   const addComment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !newComment.trim()) return;
-    const { error } = await supabase.from("comments").insert({
-      task_id: task.id, user_id: user.id, content: newComment.trim(),
-    });
-    if (error) return toast.error(error.message);
-    setNewComment("");
+    if (!user) return;
+    const text = newComment.trim();
+    if (!text && pendingFiles.length === 0) return;
+    setPosting(true);
+    try {
+      let commentId: string | null = null;
+      if (text) {
+        const { data, error } = await supabase
+          .from("comments")
+          .insert({ task_id: task.id, user_id: user.id, content: text })
+          .select()
+          .single();
+        if (error) { toast.error(error.message); return; }
+        commentId = (data as { id: string }).id;
+      }
+
+      if (pendingFiles.length && task.project_id) {
+        for (const file of pendingFiles) {
+          if (file.size > 50 * 1024 * 1024) {
+            toast.error(`${file.name}: máximo 50MB`);
+            continue;
+          }
+          const safe = file.name.replace(/[^\w.\- ]/g, "_");
+          const path = `${task.project_id}/${task.id}/${crypto.randomUUID()}-${safe}`;
+          const { error: upErr } = await supabase.storage
+            .from("task-attachments")
+            .upload(path, file, { contentType: file.type || undefined, upsert: false });
+          if (upErr) { toast.error(upErr.message); continue; }
+          const { error: dbErr } = await supabase.from("task_attachments").insert({
+            task_id: task.id,
+            comment_id: commentId,
+            uploader_id: user.id,
+            path,
+            name: file.name,
+            mime: file.type || null,
+            size: file.size,
+          });
+          if (dbErr) {
+            toast.error(dbErr.message);
+            await supabase.storage.from("task-attachments").remove([path]);
+          }
+        }
+      }
+      setNewComment("");
+      setPendingFiles([]);
+    } finally {
+      setPosting(false);
+    }
   };
 
   const deleteTask = async () => {
