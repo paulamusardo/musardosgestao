@@ -6,17 +6,19 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { Calendar as CalIcon, Trash2, Send, Timer, UserCheck } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Calendar as CalIcon, Trash2, Send, Timer, UserCheck, FolderKanban } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
-import type { Task, Comment, ProjectColumn, Profile, TaskTimeEntry } from "./types";
+import type { Task, Comment, ProjectColumn, Profile, TaskTimeEntry, Project } from "./types";
 import { formatDurationLong } from "./types";
 import { AttachmentList } from "./AttachmentList";
 import { ActivityList } from "./ActivityList";
+import { RichTextEditor } from "./RichTextEditor";
 import { Paperclip, X } from "lucide-react";
 
 export function TaskDialog({
