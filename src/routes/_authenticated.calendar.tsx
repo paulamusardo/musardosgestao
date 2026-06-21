@@ -412,13 +412,32 @@ function CalendarPage() {
       </div>
 
       {view === "month" && (
-        <MonthGrid cursor={cursor} tasksByDay={tasksByDay} projectsById={projectsById} onOpen={openDialog} />
+        <MonthGrid cursor={cursor} tasksByDay={tasksByDay} projectsById={projectsById} onOpen={openDialog} onOpenDay={(d) => setDayDialog(d)} />
       )}
       {view === "week" && (
-        <WeekGrid cursor={cursor} tasksByDay={tasksByDay} projectsById={projectsById} onOpen={openDialog} />
+        <WeekGrid cursor={cursor} tasksByDay={tasksByDay} projectsById={projectsById} onOpen={openDialog} onOpenDay={(d) => setDayDialog(d)} />
       )}
       {view === "day" && (
         <DayList date={cursor} tasks={tasksByDay.get(format(cursor, "yyyy-MM-dd")) ?? []} projectsById={projectsById} onOpen={openDialog} />
+      )}
+
+      {dayDialog && (
+        <Dialog open onOpenChange={(o) => !o && setDayDialog(null)}>
+          <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="capitalize">
+                {format(dayDialog, "EEEE, dd 'de' MMMM yyyy", { locale: ptBR })}
+              </DialogTitle>
+            </DialogHeader>
+            <DayList
+              date={dayDialog}
+              tasks={tasksByDay.get(format(dayDialog, "yyyy-MM-dd")) ?? []}
+              projectsById={projectsById}
+              onOpen={(t) => { setDayDialog(null); openDialog(t); }}
+              hideHeader
+            />
+          </DialogContent>
+        </Dialog>
       )}
 
       {openTask && (
@@ -461,11 +480,13 @@ function MonthGrid({
   tasksByDay,
   projectsById,
   onOpen,
+  onOpenDay,
 }: {
   cursor: Date;
   tasksByDay: Map<string, Task[]>;
   projectsById: Record<string, Project>;
   onOpen: (t: Task) => void;
+  onOpenDay: (d: Date) => void;
 }) {
   const days = useMemo(() => {
     const start = startOfWeek(startOfMonth(cursor), { weekStartsOn: 0 });
@@ -493,7 +514,8 @@ function MonthGrid({
           return (
             <div
               key={k}
-              className={`min-h-[110px] border-b border-r p-1.5 text-xs ${!inMonth ? "bg-muted/20 text-muted-foreground/60" : ""}`}
+              onClick={() => list.length > 0 && onOpenDay(d)}
+              className={`min-h-[110px] border-b border-r p-1.5 text-xs ${!inMonth ? "bg-muted/20 text-muted-foreground/60" : ""} ${list.length > 0 ? "cursor-pointer hover:bg-accent/40" : ""}`}
             >
               <div className="flex items-center justify-end mb-1">
                 <span
@@ -504,12 +526,17 @@ function MonthGrid({
                   {format(d, "d")}
                 </span>
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1" onClick={(e) => e.stopPropagation()}>
                 {list.slice(0, 3).map((t) => (
                   <TaskChip key={t.id} t={t} projectsById={projectsById} onOpen={onOpen} />
                 ))}
                 {list.length > 3 && (
-                  <div className="text-[10px] text-muted-foreground pl-1">+{list.length - 3} mais</div>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onOpenDay(d); }}
+                    className="text-[10px] text-primary hover:underline pl-1"
+                  >
+                    +{list.length - 3} mais — ver todas
+                  </button>
                 )}
               </div>
             </div>
@@ -525,11 +552,13 @@ function WeekGrid({
   tasksByDay,
   projectsById,
   onOpen,
+  onOpenDay,
 }: {
   cursor: Date;
   tasksByDay: Map<string, Task[]>;
   projectsById: Record<string, Project>;
   onOpen: (t: Task) => void;
+  onOpenDay: (d: Date) => void;
 }) {
   const days = useMemo(() => {
     const s = startOfWeek(cursor, { weekStartsOn: 0 });
