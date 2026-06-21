@@ -51,6 +51,7 @@ export function TaskDialog({
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [posting, setPosting] = useState(false);
   const [tick, setTick] = useState(0);
+  const [myProjects, setMyProjects] = useState<Project[]>([]);
 
   useEffect(() => {
     setTitle(task.title);
