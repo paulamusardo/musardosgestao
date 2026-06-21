@@ -66,6 +66,25 @@ export function TaskDialog({
     return () => clearInterval(t);
   }, [openEntry?.id]);
 
+  // Load projects user is member of, for project-change select
+  useEffect(() => {
+    (async () => {
+      if (!user) return;
+      const { data: pm } = await supabase
+        .from("project_members")
+        .select("project_id")
+        .eq("user_id", user.id);
+      const ids = (pm ?? []).map((m: { project_id: string }) => m.project_id);
+      if (!ids.length) return;
+      const { data: ps } = await supabase
+        .from("projects")
+        .select("*")
+        .in("id", ids)
+        .order("name");
+      setMyProjects((ps ?? []) as Project[]);
+    })();
+  }, [user?.id]);
+
   const liveSeconds = openEntry
     ? task.total_seconds + Math.floor((Date.now() - new Date(openEntry.started_at).getTime()) / 1000)
     : task.total_seconds;
