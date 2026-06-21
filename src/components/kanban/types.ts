@@ -79,6 +79,16 @@ export type Profile = {
   avatar_url?: string | null;
 };
 
+export type TaskActivity = {
+  id: string;
+  task_id: string;
+  project_id: string | null;
+  user_id: string | null;
+  action: string;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+};
+
 export const PERSONAL_COLUMNS: { kind: ColumnKind; label: string; color: string }[] = [
   { kind: "todo", label: "A Fazer", color: "#94a3b8" },
   { kind: "in_progress", label: "Em Andamento", color: "#1e88e5" },
