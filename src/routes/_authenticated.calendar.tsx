@@ -583,11 +583,17 @@ function WeekGrid({
           const k = format(d, "yyyy-MM-dd");
           const list = tasksByDay.get(k) ?? [];
           return (
-            <div key={k} className="border-r p-2 space-y-1">
+            <div
+              key={k}
+              onClick={() => list.length > 0 && onOpenDay(d)}
+              className={`border-r p-2 space-y-1 ${list.length > 0 ? "cursor-pointer hover:bg-accent/30" : ""}`}
+            >
               {list.length === 0 && <div className="text-[11px] text-muted-foreground/60">—</div>}
-              {list.map((t) => (
-                <TaskChip key={t.id} t={t} projectsById={projectsById} onOpen={onOpen} />
-              ))}
+              <div onClick={(e) => e.stopPropagation()} className="space-y-1">
+                {list.map((t) => (
+                  <TaskChip key={t.id} t={t} projectsById={projectsById} onOpen={onOpen} />
+                ))}
+              </div>
             </div>
           );
         })}
@@ -601,17 +607,21 @@ function DayList({
   tasks,
   projectsById,
   onOpen,
+  hideHeader = false,
 }: {
   date: Date;
   tasks: Task[];
   projectsById: Record<string, Project>;
   onOpen: (t: Task) => void;
+  hideHeader?: boolean;
 }) {
   return (
-    <div className="rounded-xl border bg-card p-4">
-      <div className="text-sm text-muted-foreground mb-3 capitalize">
-        {format(date, "EEEE, dd 'de' MMMM", { locale: ptBR })}
-      </div>
+    <div className={hideHeader ? "" : "rounded-xl border bg-card p-4"}>
+      {!hideHeader && (
+        <div className="text-sm text-muted-foreground mb-3 capitalize">
+          {format(date, "EEEE, dd 'de' MMMM", { locale: ptBR })}
+        </div>
+      )}
       {tasks.length === 0 && (
         <div className="text-sm text-muted-foreground py-12 text-center">Nenhuma tarefa para este dia.</div>
       )}
