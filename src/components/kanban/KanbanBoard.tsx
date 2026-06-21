@@ -18,14 +18,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { ArrowLeft, Plus, Users, Settings2, Filter } from "lucide-react";
+import { ArrowLeft, Plus, Users, Settings2, Filter, Calendar as CalIcon, UserCheck } from "lucide-react";
 import { Column } from "./Column";
 import { TaskCardView } from "./TaskCard";
 import { TaskDialog } from "./TaskDialog";
 import { MembersDialog } from "./MembersDialog";
 import { ColumnsDialog } from "./ColumnsDialog";
+import { RichTextEditor } from "./RichTextEditor";
 import type { Project, ProjectColumn, Task, Profile, TaskTimeEntry } from "./types";
 
 export function KanbanBoard({ projectId }: { projectId: string }) {
