@@ -6,17 +6,19 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { Calendar as CalIcon, Trash2, Send, Timer, UserCheck } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Calendar as CalIcon, Trash2, Send, Timer, UserCheck, FolderKanban } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
-import type { Task, Comment, ProjectColumn, Profile, TaskTimeEntry } from "./types";
+import type { Task, Comment, ProjectColumn, Profile, TaskTimeEntry, Project } from "./types";
 import { formatDurationLong } from "./types";
 import { AttachmentList } from "./AttachmentList";
 import { ActivityList } from "./ActivityList";
+import { RichTextEditor } from "./RichTextEditor";
 import { Paperclip, X } from "lucide-react";
 
 export function TaskDialog({
@@ -49,6 +51,7 @@ export function TaskDialog({
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [posting, setPosting] = useState(false);
   const [tick, setTick] = useState(0);
+  const [myProjects, setMyProjects] = useState<Project[]>([]);
 
   useEffect(() => {
     setTitle(task.title);
@@ -62,6 +65,25 @@ export function TaskDialog({
     const t = setInterval(() => setTick((x) => x + 1), 1000);
     return () => clearInterval(t);
   }, [openEntry?.id]);
+
+  // Load projects user is member of, for project-change select
+  useEffect(() => {
+    (async () => {
+      if (!user) return;
+      const { data: pm } = await supabase
+        .from("project_members")
+        .select("project_id")
+        .eq("user_id", user.id);
+      const ids = (pm ?? []).map((m: { project_id: string }) => m.project_id);
+      if (!ids.length) return;
+      const { data: ps } = await supabase
+        .from("projects")
+        .select("*")
+        .in("id", ids)
+        .order("name");
+      setMyProjects((ps ?? []) as Project[]);
+    })();
+  }, [user?.id]);
 
   const liveSeconds = openEntry
     ? task.total_seconds + Math.floor((Date.now() - new Date(openEntry.started_at).getTime()) / 1000)
@@ -278,20 +300,70 @@ export function TaskDialog({
 
         <div>
           <Label className="text-xs uppercase text-muted-foreground">Descrição</Label>
-          <Textarea
-            value={desc}
-            onChange={(e) => setDesc(e.target.value)}
-            onBlur={() => desc !== (task.description ?? "") && save({ description: desc })}
-            rows={4}
-            placeholder="Adicione mais detalhes…"
-            className="mt-1"
-          />
+          <div className="mt-1">
+            <RichTextEditor
+              value={desc}
+              onChange={setDesc}
+              onBlur={() => desc !== (task.description ?? "") && save({ description: desc })}
+              placeholder="Adicione mais detalhes…"
+              minHeight={120}
+            />
+          </div>
           {task.project_id && (
             <div className="mt-3">
               <AttachmentList taskId={task.id} projectId={task.project_id} commentId={null} />
             </div>
           )}
         </div>
+
+        <div>
+          <Label className="text-xs uppercase text-muted-foreground mb-2 block">Projeto</Label>
+          <Select
+            value={task.project_id ?? ""}
+            onValueChange={async (val) => {
+              if (!val || val === task.project_id) return;
+              if (!confirm("Mover esta tarefa para outro projeto? Ela será colocada na primeira coluna do projeto destino.")) return;
+              const { data: cols, error: cErr } = await supabase
+                .from("project_columns")
+                .select("id")
+                .eq("project_id", val)
+                .order("position")
+                .limit(1);
+              if (cErr) return toast.error(cErr.message);
+              const targetCol = cols?.[0]?.id;
+              if (!targetCol) return toast.error("Projeto destino sem colunas.");
+              const { data, error } = await supabase
+                .from("tasks")
+                .update({ project_id: val, column_id: targetCol, position: 0 })
+                .eq("id", task.id)
+                .select()
+                .single();
+              if (error) return toast.error(error.message);
+              if (data) {
+                onChange(data as unknown as Task);
+                toast.success("Tarefa movida de projeto");
+                onClose();
+              }
+            }}
+          >
+            <SelectTrigger className="w-full">
+              <FolderKanban className="h-4 w-4 mr-2 text-muted-foreground" />
+              <SelectValue placeholder="Selecionar projeto" />
+            </SelectTrigger>
+            <SelectContent>
+              {myProjects.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  <span className="inline-flex items-center gap-2">
+                    <span className="h-2.5 w-2.5 rounded-full" style={{ background: p.color }} />
+                    {p.name}
+                    {p.client && <span className="text-xs text-muted-foreground">· {p.client}</span>}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
 
         <div>
           <Label className="text-xs uppercase text-muted-foreground mb-2 block">
