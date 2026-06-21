@@ -331,15 +331,65 @@ export function TaskDialog({
               );
             })}
           </div>
-          <form onSubmit={addComment} className="flex gap-2 mt-3">
-            <Input
+          <form onSubmit={addComment} className="mt-3 space-y-2">
+            <Textarea
               value={newComment}
               onChange={(e) => setNewComment(e.target.value)}
               placeholder="Escreva um comentário…"
+              rows={2}
+              className="resize-none"
             />
-            <Button type="submit" size="icon" disabled={!newComment.trim()}><Send className="h-4 w-4" /></Button>
+            {pendingFiles.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {pendingFiles.map((f, i) => (
+                  <div key={i} className="inline-flex items-center gap-1.5 text-[11px] bg-muted text-muted-foreground rounded-full pl-2 pr-1 py-0.5">
+                    <Paperclip className="h-3 w-3" />
+                    <span className="max-w-[10rem] truncate">{f.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => setPendingFiles((p) => p.filter((_, idx) => idx !== i))}
+                      className="hover:text-foreground"
+                      aria-label="Remover anexo"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="flex items-center gap-2">
+              <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground cursor-pointer">
+                <Paperclip className="h-3.5 w-3.5" />
+                Anexar
+                <input
+                  type="file"
+                  multiple
+                  className="hidden"
+                  accept="image/*,video/*,application/pdf,.doc,.docx,.xls,.xlsx,.txt,.zip"
+                  onChange={(e) => {
+                    const files = e.target.files ? Array.from(e.target.files) : [];
+                    setPendingFiles((p) => [...p, ...files]);
+                    e.currentTarget.value = "";
+                  }}
+                />
+              </label>
+              <Button
+                type="submit"
+                size="sm"
+                className="ml-auto"
+                disabled={posting || (!newComment.trim() && pendingFiles.length === 0)}
+              >
+                <Send className="h-4 w-4 mr-1" /> {posting ? "Enviando…" : "Comentar"}
+              </Button>
+            </div>
           </form>
         </div>
+
+        <div>
+          <Label className="text-xs uppercase text-muted-foreground mb-2 block">Histórico</Label>
+          <ActivityList taskId={task.id} />
+        </div>
+
 
         <div className="flex justify-between pt-2 border-t">
           <Button variant="ghost" size="sm" onClick={deleteTask} className="text-destructive hover:text-destructive">
