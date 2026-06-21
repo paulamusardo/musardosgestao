@@ -273,7 +273,7 @@ export function KanbanBoard({ projectId }: { projectId: string }) {
               <DialogTrigger asChild>
                 <Button size="sm"><Plus className="h-4 w-4 mr-1" /> Nova tarefa</Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="max-h-[90vh] overflow-y-auto">
                 <DialogHeader><DialogTitle>Nova tarefa</DialogTitle></DialogHeader>
                 <form onSubmit={createTask} className="space-y-3">
                   <div>
