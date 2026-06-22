@@ -202,6 +202,37 @@ export function TaskDialog({
     onDeleted();
   };
 
+  const duplicateTask = async () => {
+    if (!user) return;
+    const { data: siblings } = await supabase
+      .from("tasks")
+      .select("position")
+      .eq("column_id", task.column_id as string)
+      .order("position", { ascending: false })
+      .limit(1);
+    const pos = ((siblings?.[0]?.position as number | undefined) ?? -1) + 1;
+    const { data: created, error } = await supabase
+      .from("tasks")
+      .insert({
+        title: `${task.title} (cópia)`,
+        description: task.description ?? "",
+        column_id: task.column_id,
+        position: pos,
+        created_by: user.id,
+        project_id: task.project_id,
+        due_date: task.due_date ?? null,
+      })
+      .select()
+      .single();
+    if (error || !created) return toast.error(error?.message ?? "Erro ao duplicar");
+    if (assignees.length) {
+      const rows = assignees.map((a) => ({ task_id: (created as { id: string }).id, user_id: a.id }));
+      await supabase.from("task_assignees").insert(rows);
+    }
+    toast.success("Card duplicado");
+    onClose();
+  };
+
   const deleteComment = async (id: string) => {
     const { error } = await supabase.from("comments").delete().eq("id", id);
     if (error) toast.error(error.message);
