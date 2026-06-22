@@ -202,6 +202,7 @@ export type Database = {
           created_by: string
           id: string
           name: string
+          position: number
           updated_at: string
         }
         Insert: {
@@ -211,6 +212,7 @@ export type Database = {
           created_by: string
           id?: string
           name: string
+          position?: number
           updated_at?: string
         }
         Update: {
@@ -220,6 +222,7 @@ export type Database = {
           created_by?: string
           id?: string
           name?: string
+          position?: number
           updated_at?: string
         }
         Relationships: []
@@ -454,6 +457,10 @@ export type Database = {
       shares_project_with: {
         Args: { _a: string; _b: string }
         Returns: boolean
+      }
+      update_project_order: {
+        Args: { _position: number; _project_id: string }
+        Returns: undefined
       }
     }
     Enums: {

@@ -29,6 +29,7 @@ export type Project = {
   client: string | null;
   color: string;
   created_by: string;
+  position: number;
   created_at: string;
   updated_at: string;
 };
