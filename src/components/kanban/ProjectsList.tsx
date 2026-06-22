@@ -83,14 +83,11 @@ export function ProjectsList() {
   const create = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !name.trim()) return;
-    const maxPosition =
-      projects.length > 0 ? Math.max(...projects.map((p) => p.position ?? 0)) : -1;
     const { error } = await supabase.from("projects").insert({
       name: name.trim(),
       client: client.trim() || null,
       color,
       created_by: user.id,
-      position: (maxPosition + 1) * 1000,
     });
     if (error) return toast.error(error.message);
     setName("");
