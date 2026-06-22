@@ -1,0 +1,1 @@
+DROP POLICY IF EXISTS "Public read avatars" ON storage.objects;
