@@ -2,7 +2,7 @@ import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
-import { Bold, Italic, List, ListOrdered, ListChecks, Strikethrough } from "lucide-react";
+import { Bold, Italic, List, ListOrdered, ListChecks, Strikethrough, SquareArrowOutUpRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useEffect } from "react";
 
@@ -12,6 +12,7 @@ type Props = {
   onBlur?: () => void;
   placeholder?: string;
   minHeight?: number;
+  onConvertChecklistItem?: (text: string) => Promise<boolean> | boolean;
 };
 
 function ToolbarBtn({
