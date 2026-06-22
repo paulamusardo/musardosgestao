@@ -28,7 +28,6 @@ import type { Project, Profile } from "@/components/kanban/types";
 import {
   DndContext,
   type DragEndEvent,
-  type DragStartEvent,
   PointerSensor,
   closestCenter,
   useSensor,
@@ -43,24 +42,54 @@ import {
 } from "@dnd-kit/sortable";
 import { cn } from "@/lib/utils";
 
+const orderStorageKey = (userId: string) => `musardos:sidebar-project-order:${userId}`;
+
+function loadOrder(userId: string): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(orderStorageKey(userId));
+    return raw ? (JSON.parse(raw) as string[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveOrder(userId: string, ids: string[]) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(orderStorageKey(userId), JSON.stringify(ids));
+  } catch {
+    // ignore
+  }
+}
+
+function applyOrder(projects: Project[], orderIds: string[]): Project[] {
+  if (!orderIds.length) return projects;
+  const map = new Map(projects.map((p) => [p.id, p]));
+  const ordered: Project[] = [];
+  for (const id of orderIds) {
+    const p = map.get(id);
+    if (p) {
+      ordered.push(p);
+      map.delete(id);
+    }
+  }
+  // append any new projects (not yet in saved order) preserving server order
+  for (const p of projects) {
+    if (map.has(p.id)) ordered.push(p);
+  }
+  return ordered;
+}
+
 function SortableProjectItem({
   project,
   active,
-  collapsed,
 }: {
   project: Project;
   active: boolean;
-  collapsed: boolean;
 }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    setActivatorNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: project.id });
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
+    useSortable({ id: project.id });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -108,20 +137,21 @@ export function AppSidebar() {
   const pathname = useRouterState({ select: (r) => r.location.pathname });
   const [projects, setProjects] = useState<Project[]>([]);
   const [me, setMe] = useState<Profile | null>(null);
-  const [activeId, setActiveId] = useState<string | null>(null);
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
-
-  const load = async () => {
-    const { data } = await supabase
-      .from("projects")
-      .select("*")
-      .order("position", { ascending: true })
-      .order("created_at", { ascending: false });
-    setProjects((data ?? []) as Project[]);
-  };
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+  );
 
   useEffect(() => {
+    const load = async () => {
+      const { data } = await supabase
+        .from("projects")
+        .select("*")
+        .order("created_at", { ascending: false });
+      const list = (data ?? []) as Project[];
+      const ordered = user ? applyOrder(list, loadOrder(user.id)) : list;
+      setProjects(ordered);
+    };
     load();
     const ch = supabase
       .channel("sidebar-projects")
@@ -131,7 +161,7 @@ export function AppSidebar() {
     return () => {
       supabase.removeChannel(ch);
     };
-  }, []);
+  }, [user?.id]);
 
   useEffect(() => {
     if (!user) return;
@@ -143,14 +173,9 @@ export function AppSidebar() {
       .then(({ data }) => setMe(data as Profile | null));
   }, [user?.id]);
 
-  const handleDragStart = (event: DragStartEvent) => {
-    setActiveId(event.active.id as string);
-  };
-
-  const handleDragEnd = async (event: DragEndEvent) => {
-    setActiveId(null);
+  const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-    if (!over || active.id === over.id) return;
+    if (!over || active.id === over.id || !user) return;
 
     const oldIndex = projects.findIndex((p) => p.id === active.id);
     const newIndex = projects.findIndex((p) => p.id === over.id);
@@ -158,18 +183,9 @@ export function AppSidebar() {
 
     const reordered = arrayMove(projects, oldIndex, newIndex);
     setProjects(reordered);
-
-    const updates = reordered
-      .map((p, idx) => ({ id: p.id, position: idx * 1000 }))
-      .filter((u, idx) => projects[idx]?.position !== u.position);
-
-    await Promise.all(
-      updates.map((u) =>
-        supabase.rpc("update_project_order", {
-          _project_id: u.id,
-          _position: u.position,
-        }),
-      ),
+    saveOrder(
+      user.id,
+      reordered.map((p) => p.id),
     );
   };
 
@@ -184,14 +200,7 @@ export function AppSidebar() {
 
   const name = me?.display_name || user?.email?.split("@")[0] || "Usuário";
 
-  const projectItems = useMemo(
-    () =>
-      projects.map((p) => {
-        const active = pathname === `/projects/${p.id}`;
-        return <SortableProjectItem key={p.id} project={p} active={active} collapsed={collapsed} />;
-      }),
-    [projects, pathname, collapsed],
-  );
+  const projectIds = useMemo(() => projects.map((p) => p.id), [projects]);
 
   return (
     <Sidebar collapsible="icon">
@@ -228,14 +237,16 @@ export function AppSidebar() {
                 <DndContext
                   sensors={sensors}
                   collisionDetection={closestCenter}
-                  onDragStart={handleDragStart}
                   onDragEnd={handleDragEnd}
                 >
-                  <SortableContext
-                    items={projects.map((p) => p.id)}
-                    strategy={verticalListSortingStrategy}
-                  >
-                    {projectItems}
+                  <SortableContext items={projectIds} strategy={verticalListSortingStrategy}>
+                    {projects.map((p) => (
+                      <SortableProjectItem
+                        key={p.id}
+                        project={p}
+                        active={pathname === `/projects/${p.id}`}
+                      />
+                    ))}
                   </SortableContext>
                 </DndContext>
               </SidebarMenu>
