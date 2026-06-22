@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar as CalIcon, Trash2, Send, Timer, UserCheck, FolderKanban } from "lucide-react";
+import { Calendar as CalIcon, Trash2, Send, Timer, UserCheck, FolderKanban, Copy } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -200,6 +200,37 @@ export function TaskDialog({
     const { error } = await supabase.from("tasks").delete().eq("id", task.id);
     if (error) return toast.error(error.message);
     onDeleted();
+  };
+
+  const duplicateTask = async () => {
+    if (!user) return;
+    const { data: siblings } = await supabase
+      .from("tasks")
+      .select("position")
+      .eq("column_id", task.column_id as string)
+      .order("position", { ascending: false })
+      .limit(1);
+    const pos = ((siblings?.[0]?.position as number | undefined) ?? -1) + 1;
+    const { data: created, error } = await supabase
+      .from("tasks")
+      .insert({
+        title: `${task.title} (cópia)`,
+        description: task.description ?? "",
+        column_id: task.column_id,
+        position: pos,
+        created_by: user.id,
+        project_id: task.project_id,
+        due_date: task.due_date ?? null,
+      })
+      .select()
+      .single();
+    if (error || !created) return toast.error(error?.message ?? "Erro ao duplicar");
+    if (assignees.length) {
+      const rows = assignees.map((a) => ({ task_id: (created as { id: string }).id, user_id: a.id }));
+      await supabase.from("task_assignees").insert(rows);
+    }
+    toast.success("Card duplicado");
+    onClose();
   };
 
   const deleteComment = async (id: string) => {
@@ -488,7 +519,12 @@ export function TaskDialog({
           <Button variant="ghost" size="sm" onClick={deleteTask} className="text-destructive hover:text-destructive">
             <Trash2 className="h-4 w-4 mr-1" /> Excluir tarefa
           </Button>
-          <Button variant="outline" size="sm" onClick={onClose}>Fechar</Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={duplicateTask}>
+              <Copy className="h-4 w-4 mr-1" /> Duplicar
+            </Button>
+            <Button variant="outline" size="sm" onClick={onClose}>Fechar</Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
