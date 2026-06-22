@@ -5,13 +5,28 @@ import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { KanbanSquare, Plus, Trash2, Users, Pencil } from "lucide-react";
 import type { Project } from "./types";
 import { EditProjectDialog } from "./EditProjectDialog";
 
-const PALETTE = ["#6366f1", "#10b981", "#f59e0b", "#ef4444", "#06b6d4", "#a855f7", "#ec4899", "#64748b"];
+const PALETTE = [
+  "#6366f1",
+  "#10b981",
+  "#f59e0b",
+  "#ef4444",
+  "#06b6d4",
+  "#a855f7",
+  "#ec4899",
+  "#64748b",
+];
 
 export function ProjectsList() {
   const { user } = useAuth();
@@ -37,7 +52,10 @@ export function ProjectsList() {
       const { data: tasks } = await supabase
         .from("tasks")
         .select("project_id")
-        .in("project_id", list.map((p) => p.id));
+        .in(
+          "project_id",
+          list.map((p) => p.id),
+        );
       const map: Record<string, number> = {};
       (tasks ?? []).forEach((t: { project_id: string | null }) => {
         if (t.project_id) map[t.project_id] = (map[t.project_id] ?? 0) + 1;
@@ -53,17 +71,20 @@ export function ProjectsList() {
     const ch = supabase
       .channel("projects-rt")
       .on("postgres_changes", { event: "*", schema: "public", table: "projects" }, () => load())
-      .on("postgres_changes", { event: "*", schema: "public", table: "project_members" }, () => load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "project_members" }, () =>
+        load(),
+      )
       .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    return () => {
+      supabase.removeChannel(ch);
+    };
   }, []);
 
   const create = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !name.trim()) return;
-    const maxPosition = projects.length > 0
-      ? Math.max(...projects.map((p) => p.position ?? 0))
-      : -1;
+    const maxPosition =
+      projects.length > 0 ? Math.max(...projects.map((p) => p.position ?? 0)) : -1;
     const { error } = await supabase.from("projects").insert({
       name: name.trim(),
       client: client.trim() || null,
@@ -72,7 +93,10 @@ export function ProjectsList() {
       position: (maxPosition + 1) * 1000,
     });
     if (error) return toast.error(error.message);
-    setName(""); setClient(""); setColor(PALETTE[0]); setOpen(false);
+    setName("");
+    setClient("");
+    setColor(PALETTE[0]);
+    setOpen(false);
     toast.success("Projeto criado");
   };
 
@@ -85,28 +109,43 @@ export function ProjectsList() {
 
   return (
     <div className="min-h-screen bg-background">
-
-
       <main className="max-w-6xl mx-auto px-6 py-10">
         <div className="flex items-end justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Projetos</h1>
-            <p className="text-muted-foreground mt-1 text-sm">Um Kanban dedicado para cada cliente.</p>
+            <p className="text-muted-foreground mt-1 text-sm">
+              Um Kanban dedicado para cada cliente.
+            </p>
           </div>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button><Plus className="h-4 w-4 mr-1" /> Novo projeto</Button>
+              <Button>
+                <Plus className="h-4 w-4 mr-1" /> Novo projeto
+              </Button>
             </DialogTrigger>
             <DialogContent>
-              <DialogHeader><DialogTitle>Novo projeto</DialogTitle></DialogHeader>
+              <DialogHeader>
+                <DialogTitle>Novo projeto</DialogTitle>
+              </DialogHeader>
               <form onSubmit={create} className="space-y-3">
                 <div>
                   <Label htmlFor="n">Nome do projeto</Label>
-                  <Input id="n" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex.: Website institucional" required />
+                  <Input
+                    id="n"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Ex.: Website institucional"
+                    required
+                  />
                 </div>
                 <div>
                   <Label htmlFor="c">Cliente</Label>
-                  <Input id="c" value={client} onChange={(e) => setClient(e.target.value)} placeholder="Ex.: Acme Ltda." />
+                  <Input
+                    id="c"
+                    value={client}
+                    onChange={(e) => setClient(e.target.value)}
+                    placeholder="Ex.: Acme Ltda."
+                  />
                 </div>
                 <div>
                   <Label>Cor</Label>
@@ -124,7 +163,9 @@ export function ProjectsList() {
                   </div>
                 </div>
                 <div className="flex justify-end gap-2 pt-2">
-                  <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancelar</Button>
+                  <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
+                    Cancelar
+                  </Button>
                   <Button type="submit">Criar projeto</Button>
                 </div>
               </form>
@@ -136,12 +177,17 @@ export function ProjectsList() {
           <div className="border border-dashed rounded-xl py-20 text-center">
             <KanbanSquare className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
             <h3 className="font-medium">Nenhum projeto ainda</h3>
-            <p className="text-sm text-muted-foreground mt-1">Crie o primeiro projeto para começar.</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Crie o primeiro projeto para começar.
+            </p>
           </div>
         ) : (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {projects.map((p) => (
-              <div key={p.id} className="group relative rounded-xl border bg-card hover:border-primary/40 hover:shadow-md transition">
+              <div
+                key={p.id}
+                className="group relative rounded-xl border bg-card hover:border-primary/40 hover:shadow-md transition"
+              >
                 <Link to="/projects/$projectId" params={{ projectId: p.id }} className="block p-5">
                   <div className="flex items-center gap-2">
                     <span className="h-3 w-3 rounded-full" style={{ background: p.color }} />
@@ -181,9 +227,7 @@ export function ProjectsList() {
         )}
       </main>
 
-      {editing && (
-        <EditProjectDialog project={editing} open onClose={() => setEditing(null)} />
-      )}
+      {editing && <EditProjectDialog project={editing} open onClose={() => setEditing(null)} />}
     </div>
   );
 }

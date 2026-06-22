@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, CalendarDays, FolderKanban, UserCog, LogOut, GripVertical } from "lucide-react";
+import {
+  LayoutDashboard,
+  CalendarDays,
+  FolderKanban,
+  UserCog,
+  LogOut,
+  GripVertical,
+} from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -64,10 +71,7 @@ function SortableProjectItem({
     <div
       ref={setNodeRef}
       style={style}
-      className={cn(
-        "flex items-center group",
-        isDragging && "opacity-50 z-50"
-      )}
+      className={cn("flex items-center group", isDragging && "opacity-50 z-50")}
     >
       <button
         ref={setActivatorNodeRef}
@@ -85,7 +89,10 @@ function SortableProjectItem({
             params={{ projectId: project.id }}
             className="flex items-center gap-2"
           >
-            <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: project.color }} />
+            <span
+              className="h-2.5 w-2.5 rounded-full shrink-0"
+              style={{ background: project.color }}
+            />
             <span className="truncate">{project.name}</span>
           </Link>
         </SidebarMenuButton>
@@ -103,9 +110,7 @@ export function AppSidebar() {
   const [me, setMe] = useState<Profile | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
-  );
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   const load = async () => {
     const { data } = await supabase
@@ -123,12 +128,18 @@ export function AppSidebar() {
       .on("postgres_changes", { event: "*", schema: "public", table: "projects" }, load)
       .on("postgres_changes", { event: "*", schema: "public", table: "project_members" }, load)
       .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    return () => {
+      supabase.removeChannel(ch);
+    };
   }, []);
 
   useEffect(() => {
     if (!user) return;
-    supabase.from("profiles").select("id, display_name, email, avatar_url").eq("id", user.id).maybeSingle()
+    supabase
+      .from("profiles")
+      .select("id, display_name, email, avatar_url")
+      .eq("id", user.id)
+      .maybeSingle()
       .then(({ data }) => setMe(data as Profile | null));
   }, [user?.id]);
 
@@ -157,12 +168,13 @@ export function AppSidebar() {
         supabase.rpc("update_project_order", {
           _project_id: u.id,
           _position: u.position,
-        })
-      )
+        }),
+      ),
     );
   };
 
-  const isActive = (path: string) => pathname === path || (path !== "/" && pathname.startsWith(path));
+  const isActive = (path: string) =>
+    pathname === path || (path !== "/" && pathname.startsWith(path));
 
   const main = [
     { url: "/me", icon: LayoutDashboard, title: "Meu Kanban" },
@@ -176,16 +188,9 @@ export function AppSidebar() {
     () =>
       projects.map((p) => {
         const active = pathname === `/projects/${p.id}`;
-        return (
-          <SortableProjectItem
-            key={p.id}
-            project={p}
-            active={active}
-            collapsed={collapsed}
-          />
-        );
+        return <SortableProjectItem key={p.id} project={p} active={active} collapsed={collapsed} />;
       }),
-    [projects, pathname, collapsed]
+    [projects, pathname, collapsed],
   );
 
   return (
