@@ -307,6 +307,27 @@ export function TaskDialog({
               onBlur={() => desc !== (task.description ?? "") && save({ description: desc })}
               placeholder="Adicione mais detalhes…"
               minHeight={120}
+              onConvertChecklistItem={async (text) => {
+                if (!user || !task.project_id || !task.column_id) return false;
+                const { data: siblings } = await supabase
+                  .from("tasks")
+                  .select("position")
+                  .eq("column_id", task.column_id)
+                  .order("position", { ascending: false })
+                  .limit(1);
+                const pos = ((siblings?.[0]?.position as number | undefined) ?? -1) + 1;
+                const { error } = await supabase.from("tasks").insert({
+                  title: text,
+                  description: "",
+                  column_id: task.column_id,
+                  position: pos,
+                  created_by: user.id,
+                  project_id: task.project_id,
+                });
+                if (error) { toast.error(error.message); return false; }
+                toast.success("Card criado a partir do item");
+                return true;
+              }}
             />
           </div>
           {task.project_id && (
