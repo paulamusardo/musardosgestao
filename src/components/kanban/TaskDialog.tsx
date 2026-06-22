@@ -519,7 +519,12 @@ export function TaskDialog({
           <Button variant="ghost" size="sm" onClick={deleteTask} className="text-destructive hover:text-destructive">
             <Trash2 className="h-4 w-4 mr-1" /> Excluir tarefa
           </Button>
-          <Button variant="outline" size="sm" onClick={onClose}>Fechar</Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={duplicateTask}>
+              <Copy className="h-4 w-4 mr-1" /> Duplicar
+            </Button>
+            <Button variant="outline" size="sm" onClick={onClose}>Fechar</Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
