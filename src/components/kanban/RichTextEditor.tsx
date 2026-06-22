@@ -42,7 +42,7 @@ function ToolbarBtn({
   );
 }
 
-export function RichTextEditor({ value, onChange, onBlur, placeholder, minHeight = 96 }: Props) {
+export function RichTextEditor({ value, onChange, onBlur, placeholder, minHeight = 96, onConvertChecklistItem }: Props) {
   const editor = useEditor({
     extensions: [
       StarterKit.configure({}),
@@ -69,9 +69,51 @@ export function RichTextEditor({ value, onChange, onBlur, placeholder, minHeight
 
   if (!editor) return null;
 
+  const convertCurrentTaskItem = async () => {
+    if (!onConvertChecklistItem) return;
+    const { state } = editor;
+    const { $from } = state.selection;
+    let depth = $from.depth;
+    let itemPos = -1;
+    let itemNode: { textContent: string; nodeSize: number } | null = null;
+    while (depth > 0) {
+      const node = $from.node(depth);
+      if (node.type.name === "taskItem") {
+        itemPos = $from.before(depth);
+        itemNode = node;
+        break;
+      }
+      depth--;
+    }
+    if (!itemNode || itemPos < 0) return;
+    const text = itemNode.textContent.trim();
+    if (!text) return;
+    const ok = await onConvertChecklistItem(text);
+    if (ok) {
+      editor.chain().focus().deleteRange({ from: itemPos, to: itemPos + itemNode.nodeSize }).run();
+    }
+  };
+
+  const inTaskItem = editor.isActive("taskItem");
+
   return (
     <div className="rounded-md border bg-background focus-within:ring-1 focus-within:ring-ring">
       <Toolbar editor={editor} />
+      {onConvertChecklistItem && inTaskItem && (
+        <div className="px-2 py-1 border-b bg-muted/40 flex items-center justify-between gap-2">
+          <span className="text-[11px] text-muted-foreground">Item da checklist selecionado</span>
+          <button
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={convertCurrentTaskItem}
+            className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded border bg-background hover:bg-accent text-foreground"
+            title="Transformar este item em um novo card"
+          >
+            <SquareArrowOutUpRight className="h-3 w-3" />
+            Transformar em card
+          </button>
+        </div>
+      )}
       <div style={{ minHeight }} className="text-sm" data-placeholder={placeholder}>
         <EditorContent editor={editor} />
       </div>
